@@ -17,6 +17,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
 import { useT } from "@/constants/i18n";
+import { useAuth } from "@/constants/auth";
+import { submitPlanRealPhoto } from "@/lib/planreal";
 
 type Tint = readonly [string, string];
 
@@ -59,7 +61,8 @@ function notify(type: Haptics.NotificationFeedbackType): void {
 export default function CameraScreen() {
   const t = useT();
   const params = useLocalSearchParams<{ planId?: string }>();
-  void params;
+  const planId = (params.planId ?? "") as string;
+  const { user } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>("back");
   const [seconds, setSeconds] = useState<number>(TOTAL_SECONDS);
@@ -138,7 +141,11 @@ export default function CameraScreen() {
     ]).start();
     try {
       if (cameraRef.current && Platform.OS !== "web") {
-        await cameraRef.current.takePictureAsync({ quality: 0.7, skipProcessing: true });
+        const photo = await cameraRef.current.takePictureAsync({ quality: 0.7, skipProcessing: true });
+        if (photo?.uri && planId && user?.id) {
+          const { ok, error } = await submitPlanRealPhoto(planId, user.id, photo.uri);
+          if (!ok) console.log("[camera] submit error", error);
+        }
       }
     } catch (e) {
       console.log("capture failed", e);
@@ -146,7 +153,7 @@ export default function CameraScreen() {
     setCaptured(true);
     setMembers((prev) => prev.map((m) => (m.isMe ? { ...m, submitted: true } : m)));
     notify(Haptics.NotificationFeedbackType.Success);
-  }, [captured, flash]);
+  }, [captured, flash, planId, user?.id]);
 
   const onFlip = useCallback(() => {
     buzz(Haptics.ImpactFeedbackStyle.Light);

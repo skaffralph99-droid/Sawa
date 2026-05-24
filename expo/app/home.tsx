@@ -31,6 +31,7 @@ import { useT } from "@/constants/i18n";
 import { useAuth } from "@/constants/auth";
 import { useLocalPlans, type LocalPlan } from "@/constants/localPlans";
 import { supabase, hasSupabase } from "@/lib/supabase";
+import { fetchActivePlans } from "@/lib/plans";
 import { useQuery } from "@tanstack/react-query";
 
 const DEFAULT_AVATAR_URL =
@@ -470,15 +471,19 @@ export default function HomeScreen() {
     queryKey: ["plans"],
     enabled: hasSupabase && mode === "signedIn",
     queryFn: async () => {
-      const { data: plans, error } = await supabase
-        .from("plans")
-        .select("id, owner_id, title, location, privacy, created_at")
-        .order("created_at", { ascending: false });
+      const { plans, error } = await fetchActivePlans(user?.id ?? "");
       if (error) {
-        console.log("[home] plans query error", error.message);
+        console.log("[home] plans query error", error);
         return [];
       }
-      const rows = (plans ?? []) as RemotePlanRow[];
+      const rows: RemotePlanRow[] = plans.map((p) => ({
+        id: p.id,
+        owner_id: p.owner_id,
+        title: p.title,
+        location: p.location,
+        privacy: p.privacy,
+        created_at: p.created_at,
+      }));
       if (rows.length === 0) return [];
 
       const ownerIds = Array.from(new Set(rows.map((r) => r.owner_id)));

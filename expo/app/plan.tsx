@@ -28,6 +28,7 @@ import { useT } from "@/constants/i18n";
 import { useAuth } from "@/constants/auth";
 import { useLocalPlans } from "@/constants/localPlans";
 import { supabase, hasSupabase } from "@/lib/supabase";
+import { joinPlan, leavePlan } from "@/lib/plans";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 type Tint = readonly [string, string];
@@ -256,22 +257,16 @@ export default function PlanScreen() {
     if (!isRemote || !user || mode !== "signedIn") return;
 
     if (next) {
-      const { error } = await supabase
-        .from("plan_members")
-        .insert({ plan_id: planId, user_id: user.id, status: "joined" });
-      if (error && !/duplicate/i.test(error.message)) {
-        console.log("[plan] join error", error.message);
+      const { ok, error } = await joinPlan(planId, user.id);
+      if (!ok && error && !/duplicate/i.test(error)) {
+        console.log("[plan] join error", error);
         setJoined(false);
         return;
       }
     } else {
-      const { error } = await supabase
-        .from("plan_members")
-        .delete()
-        .eq("plan_id", planId)
-        .eq("user_id", user.id);
-      if (error) {
-        console.log("[plan] leave error", error.message);
+      const { ok, error } = await leavePlan(planId, user.id);
+      if (!ok) {
+        console.log("[plan] leave error", error);
         setJoined(true);
         return;
       }
