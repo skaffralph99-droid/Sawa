@@ -94,7 +94,7 @@ export default function ProfileScreen() {
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
-      router.replace("/contacts");
+      router.replace("/home");
       return;
     }
 
@@ -114,7 +114,7 @@ export default function ProfileScreen() {
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
-      router.replace("/contacts");
+      router.replace("/home");
     } catch (e) {
       console.log("[profile] upload failed", e);
       const msg = e instanceof Error ? e.message : t("ما قدرنا نحفظ الملف، جرّب مرة تانية");

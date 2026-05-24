@@ -76,7 +76,37 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       if (error) return { ok: false, error: error.message };
       setSession(data.session);
       setIsGuest(false);
+      console.log("[auth] signed in, session user:", JSON.stringify(data.session?.user ?? null));
       return { ok: true };
+    },
+    []
+  );
+
+  const devSignIn = useCallback(
+    (phoneE164: string): void => {
+      const mockUser: User = {
+        id: "dev-user-" + Date.now(),
+        aud: "authenticated",
+        role: "authenticated",
+        email: undefined,
+        phone: phoneE164,
+        created_at: new Date().toISOString(),
+        app_metadata: {},
+        user_metadata: {},
+        identities: [],
+        updated_at: new Date().toISOString(),
+      } as User;
+      const mockSession: Session = {
+        access_token: "dev-token",
+        token_type: "bearer",
+        expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        refresh_token: "dev-refresh",
+        user: mockUser,
+      } as Session;
+      setSession(mockSession);
+      setIsGuest(false);
+      console.log("[auth] dev sign-in, session user:", JSON.stringify(mockUser));
     },
     []
   );
@@ -90,12 +120,18 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         name: input.name,
         avatar_url: input.avatarUrl,
       };
+      console.log("[auth] saveProfile upserting row:", JSON.stringify(row));
       const { data, error } = await supabase
         .from("profiles")
         .upsert(row, { onConflict: "id" })
         .select()
         .single();
-      if (error) return { ok: false, error: error.message };
+      if (error) {
+        console.log("[auth] saveProfile upsert error:", JSON.stringify(error));
+        return { ok: false, error: error.message };
+      }
+      console.log("[auth] saveProfile upsert result:", JSON.stringify(data));
+      console.log("[auth] profile saved, user:", JSON.stringify(user));
       setProfile(data as ProfileRow);
       return { ok: true };
     },
@@ -133,6 +169,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     hasSupabase,
     sendOtp,
     verifyOtp,
+    devSignIn,
     saveProfile,
     continueAsGuest,
     signOut,
