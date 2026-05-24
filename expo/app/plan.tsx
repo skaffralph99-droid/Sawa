@@ -355,8 +355,14 @@ export default function PlanScreen() {
           </View>
         </View>
 
-        {/* PlanReal status card — camera opens during the event, not before */}
-        <View style={styles.planRealWrap}>
+        {/* PlanReal status card — tap to open camera */}
+        <Pressable
+          onPress={() => {
+            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+            router.push({ pathname: "/camera", params: { planId: plan.id } });
+          }}
+          style={styles.planRealWrap}
+        >
           <Animated.View
             pointerEvents="none"
             style={[
@@ -393,7 +399,7 @@ export default function PlanScreen() {
               <Text style={styles.planRealSub}>{t("الصور بتنلتقط بوقت البلان · كونوا جاهزين 👀")}</Text>
             </View>
           </LinearGradient>
-        </View>
+        </Pressable>
 
         {/* Members */}
         <Text style={styles.sectionTitle}>{t("مين جاي؟")}</Text>

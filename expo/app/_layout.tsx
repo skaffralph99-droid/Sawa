@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
@@ -8,13 +8,28 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import Colors from "@/constants/colors";
 import { LangProvider } from "@/constants/i18n";
-import { AuthProvider } from "@/constants/auth";
+import { AuthProvider, useAuth } from "@/constants/auth";
 import { LocalPlansProvider } from "@/constants/localPlans";
 import { FriendsProvider } from "@/constants/friends";
+import { setupNotificationHandlers, registerForPushNotifications } from "@/lib/notifications";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+function NotificationsBridge() {
+  const { user, mode } = useAuth();
+  useEffect(() => {
+    if (mode !== "signedIn" || !user) return;
+    registerForPushNotifications(user.id).catch((e) => console.log("[notifications] register error", e));
+    const teardown = setupNotificationHandlers(
+      (planId) => router.push({ pathname: "/camera", params: { planId } }),
+      (planId) => router.push({ pathname: "/mosaic", params: { planId } })
+    );
+    return teardown;
+  }, [user, mode]);
+  return null;
+}
 
 function RootLayoutNav() {
   return (
@@ -59,6 +74,7 @@ export default function RootLayout() {
               <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.bg }}>
                 <View style={{ flex: 1, backgroundColor: Colors.bg }}>
                   <StatusBar style="light" />
+                  <NotificationsBridge />
                   <RootLayoutNav />
                 </View>
               </GestureHandlerRootView>

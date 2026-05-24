@@ -24,6 +24,8 @@ import Colors from "@/constants/colors";
 import { useT } from "@/constants/i18n";
 import { useAuth } from "@/constants/auth";
 import { useFriends, type FriendProfile } from "@/constants/friends";
+import { getFriends, sendFriendRequest } from "@/lib/friends";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 type DemoFriend = {
   id: string;
@@ -274,21 +276,32 @@ const qrStyles = StyleSheet.create({
 
 export default function FriendsScreen() {
   const t = useT();
-  const { profile, mode } = useAuth();
+  const { profile, user, mode } = useAuth();
+  const queryClient = useQueryClient();
   const {
     canSync,
-    friends,
     incoming,
     outgoing,
     refresh,
     searchUsers,
-    sendRequest,
     cancelRequest,
     acceptRequest,
     declineRequest,
     isFriend,
     isPendingOutgoing,
   } = useFriends();
+
+  const friendsQuery = useQuery<FriendProfile[]>({
+    queryKey: ["friends-list", user?.id ?? null],
+    enabled: canSync && !!user,
+    queryFn: async () => {
+      if (!user) return [];
+      const { friends: list, error } = await getFriends(user.id);
+      if (error) console.log("[friends] getFriends error", error);
+      return list as FriendProfile[];
+    },
+  });
+  const friends = friendsQuery.data ?? [];
 
   const [query, setQuery] = useState<string>("");
   const [focused, setFocused] = useState<boolean>(false);
@@ -331,11 +344,15 @@ export default function FriendsScreen() {
   const onAdd = useCallback(
     async (id: string) => {
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      if (!user) return;
       markBusy(id, true);
-      await sendRequest(id);
+      const { ok, error } = await sendFriendRequest(user.id, id);
+      if (!ok) console.log("[friends] sendFriendRequest error", error);
+      await queryClient.invalidateQueries({ queryKey: ["friends-list", user.id] });
+      await refresh();
       markBusy(id, false);
     },
-    [markBusy, sendRequest]
+    [markBusy, user, queryClient, refresh]
   );
   const onCancel = useCallback(
     async (id: string) => {

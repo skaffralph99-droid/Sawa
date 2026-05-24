@@ -20,6 +20,7 @@ import { useT } from "@/constants/i18n";
 import { useAuth } from "@/constants/auth";
 import { useLocalPlans } from "@/constants/localPlans";
 import { supabase, hasSupabase } from "@/lib/supabase";
+import { getUserTimeline, type PlanRow } from "@/lib/plans";
 import { useQuery } from "@tanstack/react-query";
 
 const DEFAULT_AVATAR_URL =
@@ -32,6 +33,7 @@ type TimelineEntry = {
   people: string;
   date: string;
   tiles: readonly (readonly [string, string])[];
+  mosaicUrl?: string | null;
 };
 
 const TILE_PALETTE: readonly (readonly [string, string])[] = [
@@ -117,22 +119,26 @@ function TimelineRow({ entry }: { entry: TimelineEntry }) {
   const t = useT();
   return (
     <PressableScale
-      onPress={() => router.push("/mosaic")}
+      onPress={() => router.push({ pathname: "/mosaic", params: { planId: entry.id } })}
       style={styles.timelineCard}
     >
       <View style={styles.timelineInner}>
         <View style={styles.thumbWrap}>
-          <View style={styles.thumbGrid}>
-            {entry.tiles.map((c, i) => (
-              <LinearGradient
-                key={i}
-                colors={[c[0], c[1]]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.thumbTile}
-              />
-            ))}
-          </View>
+          {entry.mosaicUrl ? (
+            <Image source={{ uri: entry.mosaicUrl }} style={{ width: "100%", height: "100%" }} />
+          ) : (
+            <View style={styles.thumbGrid}>
+              {entry.tiles.map((c, i) => (
+                <LinearGradient
+                  key={i}
+                  colors={[c[0], c[1]]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.thumbTile}
+                />
+              ))}
+            </View>
+          )}
         </View>
 
         <View style={styles.timelineBody}>
@@ -153,12 +159,7 @@ function TimelineRow({ entry }: { entry: TimelineEntry }) {
   );
 }
 
-type MomentRow = {
-  id: string;
-  caption: string | null;
-  created_at: string;
-  plan_id: string | null;
-};
+type TimelinePlan = PlanRow & { memberCount: number };
 
 export default function MeScreen() {
   const t = useT();
@@ -166,21 +167,14 @@ export default function MeScreen() {
   const { plans: localPlans } = useLocalPlans();
   const canSync = hasSupabase && mode === "signedIn" && !!user;
 
-  const momentsQuery = useQuery<MomentRow[]>({
-    queryKey: ["my-moments", user?.id ?? null],
+  const timelineQuery = useQuery<TimelinePlan[]>({
+    queryKey: ["my-timeline", user?.id ?? null],
     enabled: canSync,
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase
-        .from("moments")
-        .select("id, caption, created_at, plan_id")
-        .eq("author_id", user.id)
-        .order("created_at", { ascending: false });
-      if (error) {
-        console.log("[me] moments error", error.message);
-        return [];
-      }
-      return (data ?? []) as MomentRow[];
+      const { plans, error } = await getUserTimeline(user.id);
+      if (error) console.log("[me] timeline error", error);
+      return plans;
     },
   });
 
@@ -224,27 +218,29 @@ export default function MeScreen() {
     },
   });
 
-  const remoteMoments = momentsQuery.data ?? [];
+  const timelinePlans = timelineQuery.data ?? [];
   const planCount = (plansCountQuery.data ?? 0) + localPlans.length;
+  const momentsCount = timelinePlans.filter((p) => p.mosaic_url).length;
   const stats: Stat[] = useMemo(
     () => [
       { value: String(planCount), label: "بلان" },
-      { value: String(remoteMoments.length), label: "لحظة" },
+      { value: String(momentsCount), label: "لحظة" },
       { value: String(friendsCountQuery.data ?? 0), label: "صاحب" },
     ],
-    [planCount, remoteMoments.length, friendsCountQuery.data]
+    [planCount, momentsCount, friendsCountQuery.data]
   );
   const entries: TimelineEntry[] = useMemo(
     () =>
-      remoteMoments.map((m) => ({
-        id: m.id,
-        title: m.caption ?? "✨ لحظة",
-        activity: "",
-        people: "",
-        date: formatDate(m.created_at),
-        tiles: tilesFor(m.id),
+      timelinePlans.map((p) => ({
+        id: p.id,
+        title: p.title || "✨ بلان",
+        activity: p.activity_type ?? "",
+        people: `${p.memberCount} ${p.memberCount === 1 ? "شخص" : "أشخاص"}`,
+        date: formatDate(p.created_at),
+        tiles: tilesFor(p.id),
+        mosaicUrl: p.mosaic_url,
       })),
-    [remoteMoments]
+    [timelinePlans]
   );
 
   const displayName = profile?.name?.trim() || t("أنا");

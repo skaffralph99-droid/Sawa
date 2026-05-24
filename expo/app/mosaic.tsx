@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { router, Stack } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as MediaLibrary from "expo-media-library";
 import { ChevronLeft, Share2 } from "lucide-react-native";
@@ -9,6 +9,7 @@ import {
   Animated,
   Easing,
   I18nManager,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -23,6 +24,7 @@ import { captureRef } from "react-native-view-shot";
 
 import Colors from "@/constants/colors";
 import { useT } from "@/constants/i18n";
+import { subscribeToMosaicReady } from "@/lib/planreal";
 
 type Tint = readonly [string, string];
 
@@ -165,6 +167,19 @@ function GradientBorder({ radius, children, width = 1.5 }: { radius: number; chi
 export default function MosaicRevealScreen() {
   const t = useT();
   const { width } = useWindowDimensions();
+  const params = useLocalSearchParams<{ planId?: string }>();
+  const planId = (params.planId ?? "") as string;
+  const [remoteMosaicUrl, setRemoteMosaicUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!planId) return;
+    const channel = subscribeToMosaicReady(planId, (url) => {
+      setRemoteMosaicUrl(url);
+    });
+    return () => {
+      try { channel.unsubscribe(); } catch {}
+    };
+  }, [planId]);
   const mosaicSize = Math.min(width * 0.9, 420);
   const tileGap = 3;
   const tileSize = (mosaicSize - tileGap) / 2;
@@ -420,6 +435,9 @@ export default function MosaicRevealScreen() {
                 },
               ]}
             >
+              {remoteMosaicUrl ? (
+                <Image source={{ uri: remoteMosaicUrl }} style={{ width: mosaicSize, height: mosaicSize }} resizeMode="cover" />
+              ) : (
               <View style={styles.mosaicGrid}>
                 <View style={{ flexDirection: "row" }}>
                   <View style={{ width: tileSize, height: tileSize }}>
@@ -441,6 +459,7 @@ export default function MosaicRevealScreen() {
                   </View>
                 </View>
               </View>
+              )}
 
               {/* Bottom meta row inside mosaic */}
               <View style={styles.mosaicFooter} pointerEvents="none">
