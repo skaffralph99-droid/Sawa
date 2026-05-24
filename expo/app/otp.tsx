@@ -40,7 +40,7 @@ function formatCountdown(total: number): string {
 
 export default function OtpScreen() {
   const t = useT();
-  const { verifyOtp, sendOtp, devSignIn, hasSupabase } = useAuth();
+  const { verifyOtp, sendOtp, hasSupabase } = useAuth();
   const params = useLocalSearchParams<{ phone?: string; code?: string }>();
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -219,17 +219,6 @@ export default function OtpScreen() {
 
     const raw = (params.phone ?? "").toString().replace(/\D/g, "");
     const code = digits.join("");
-
-    // Dev bypass — skip Supabase entirely when code is 123456
-    if (code === "123456") {
-      console.log("[otp] dev bypass, phone:", `+961${raw}`);
-      if (Platform.OS !== "web") {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      }
-      devSignIn(`+961${raw}`);
-      router.replace("/profile");
-      return;
-    }
 
     if (!hasSupabase) {
       if (Platform.OS !== "web") {
