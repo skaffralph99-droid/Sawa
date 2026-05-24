@@ -1,6 +1,5 @@
 
 import * as Notifications from "expo-notifications";
-import * as Device from "expo-device";
 import { Platform } from "react-native";
 import { supabase, hasSupabase } from "./supabase";
 
@@ -19,8 +18,8 @@ export async function registerForPushNotifications(userId: string): Promise<{
   token?: string;
   error?: string;
 }> {
-  if (!Device.isDevice) {
-    return { ok: false, error: "Push notifications only work on physical devices" };
+  if (Platform.OS === "web") {
+    return { ok: false, error: "Push notifications not supported on web" };
   }
 
   if (Platform.OS === "android") {
