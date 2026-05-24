@@ -29,6 +29,8 @@ import { useAuth } from "@/constants/auth";
 import { useLocalPlans } from "@/constants/localPlans";
 import { supabase, hasSupabase } from "@/lib/supabase";
 import { joinPlan, leavePlan } from "@/lib/plans";
+import { checkAndFirePlanReal } from "@/lib/planreal";
+import { sendLocalPlanRealNotification } from "@/lib/notifications";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 type Tint = readonly [string, string];
@@ -290,6 +292,26 @@ export default function PlanScreen() {
 
   const glowOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.75] });
   const glowScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1.05] });
+
+  // Poll for PlanReal fire moment
+  useEffect(() => {
+    if (!isRemote || !planId) return;
+    let cancelled = false;
+    const tick = async () => {
+      const { shouldFire } = await checkAndFirePlanReal(planId);
+      if (cancelled) return;
+      if (shouldFire) {
+        try { await sendLocalPlanRealNotification(planId); } catch (e) { console.log("[plan] notif error", e); }
+        router.push({ pathname: "/camera", params: { planId } });
+      }
+    };
+    tick();
+    const id = setInterval(tick, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [isRemote, planId]);
 
   return (
     <View style={styles.root}>

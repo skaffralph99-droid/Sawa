@@ -25,6 +25,8 @@ import { useT } from "@/constants/i18n";
 import { useAuth } from "@/constants/auth";
 import { useLocalPlans } from "@/constants/localPlans";
 import { supabase, hasSupabase } from "@/lib/supabase";
+import { createPlan } from "@/lib/plans";
+import { schedulePlanReal } from "@/lib/planreal";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 type ActivityId = "food" | "sport" | "night" | "beach" | "event" | "other";
@@ -159,41 +161,47 @@ export default function CreatePlanScreen() {
     try {
       const fullTitle = emoji ? `${emoji} ${title.trim()}` : title.trim();
 
-      const { data: plan, error: planErr } = await supabase
-        .from("plans")
-        .insert({
-          owner_id: user.id,
-          title: fullTitle,
-          location: location.trim(),
-          privacy: visibility,
-          time_label: time || null,
-          date_label: date || null,
-          max_people: maxPeople,
-        })
-        .select()
-        .single();
+      const now = new Date();
+      const startsAt = new Date(now.getTime() + 60 * 60 * 1000);
+      const endsAt = new Date(now.getTime() + 4 * 60 * 60 * 1000);
 
-      if (planErr || !plan) {
-        console.log("[create] insert plan error", planErr?.message);
+      const { ok, planId, error } = await createPlan({
+        ownerId: user.id,
+        title: fullTitle,
+        location: location.trim(),
+        activityType: activity ?? "other",
+        privacy: visibility,
+        maxPeople,
+        timeLabel: time || undefined,
+        dateLabel: date || undefined,
+        startsAt,
+        endsAt,
+      });
+
+      if (!ok || !planId) {
+        console.log("[create] createPlan error", error);
         if (Platform.OS !== "web") {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
         }
         Alert.alert(
           "Couldn't sync to cloud",
-          planErr?.message ?? "The plan was saved on this device but didn't sync to Supabase. Make sure you've run SUPABASE_SETUP.sql.",
+          error ?? "The plan was saved on this device but didn't sync to Supabase. Make sure you've run SUPABASE_SETUP.sql.",
         );
         setSubmitting(false);
         router.back();
         return;
       }
 
-      // Add the creator as a joined member, then invited friends
-      const members: { plan_id: string; user_id: string; status: string }[] = [
-        { plan_id: plan.id, user_id: user.id, status: "joined" },
-        ...invitedIds.map((fid) => ({ plan_id: plan.id, user_id: fid, status: "invited" })),
-      ];
-      const { error: memErr } = await supabase.from("plan_members").insert(members);
-      if (memErr) console.log("[create] plan_members error", memErr.message);
+      // Invite selected friends as additional members
+      if (invitedIds.length > 0) {
+        const invites = invitedIds.map((fid) => ({ plan_id: planId, user_id: fid, status: "invited" }));
+        const { error: memErr } = await supabase.from("plan_members").insert(invites);
+        if (memErr) console.log("[create] plan_members error", memErr.message);
+      }
+
+      // Schedule the random PlanReal moment within the plan window
+      const sched = await schedulePlanReal(planId, startsAt, endsAt);
+      if (!sched.ok) console.log("[create] schedulePlanReal error", sched.error);
 
       await queryClient.invalidateQueries({ queryKey: ["plans"] });
 

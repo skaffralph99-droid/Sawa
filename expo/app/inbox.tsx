@@ -23,6 +23,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useT } from "@/constants/i18n";
 import { useFriends } from "@/constants/friends";
+import { useAuth } from "@/constants/auth";
+import { hasSupabase } from "@/lib/supabase";
+import { getPendingRequests, acceptFriendRequest } from "@/lib/friends";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const TABS = [
   { id: "all", label: "الكل" },
@@ -340,28 +344,41 @@ function EmptyState() {
 
 export default function InboxScreen() {
   const t = useT();
-  const { canSync, incoming, acceptRequest, declineRequest } = useFriends();
+  const { user, mode } = useAuth();
+  const queryClient = useQueryClient();
+  const { canSync, declineRequest } = useFriends();
   const [activeTab, setActiveTab] = useState<TabId>("all");
   const [items, setItems] = useState<AnyNotif[]>(canSync ? [] : NOTIFS);
   const [dismissedReqIds, setDismissedReqIds] = useState<Record<string, boolean>>({});
 
+  const pendingQuery = useQuery({
+    queryKey: ["pending-friend-requests", user?.id ?? null],
+    enabled: hasSupabase && mode === "signedIn" && !!user,
+    queryFn: async () => {
+      if (!user) return [];
+      const { requests, error } = await getPendingRequests(user.id);
+      if (error) console.log("[inbox] pending error", error);
+      return requests;
+    },
+  });
+
   // Convert real incoming friend requests into inbox rows
   const liveRequests: AnyNotif[] = useMemo(() => {
     if (!canSync) return [];
-    return incoming
-      .filter((r) => !dismissedReqIds[r.id])
+    return (pendingQuery.data ?? [])
+      .filter((r) => !dismissedReqIds[r.fromUserId])
       .map<FriendRequest>((r) => ({
         kind: "request",
-        id: `req_${r.id}`,
+        id: `req_${r.fromUserId}`,
         category: "all",
         group: "today",
         read: false,
-        avatar: r.profile?.avatar_url ?? "",
-        title: r.profile?.name
-          ? `${r.profile.name} ${t("بدو يكون صاحبك")}`
+        avatar: r.avatar_url ?? "",
+        title: r.name
+          ? `${r.name} ${t("بدو يكون صاحبك")}`
           : t("حدا بدو يكون صاحبك"),
       }));
-  }, [canSync, incoming, dismissedReqIds, t]);
+  }, [canSync, pendingQuery.data, dismissedReqIds, t]);
 
   const merged: AnyNotif[] = useMemo(() => [...liveRequests, ...items], [liveRequests, items]);
 
@@ -384,12 +401,19 @@ export default function InboxScreen() {
       if (id.startsWith("req_")) {
         const realId = id.slice(4);
         setDismissedReqIds((prev) => ({ ...prev, [realId]: true }));
-        acceptRequest(realId).catch(() => {});
+        if (user) {
+          acceptFriendRequest(user.id, realId)
+            .then(() => {
+              queryClient.invalidateQueries({ queryKey: ["pending-friend-requests", user.id] });
+              queryClient.invalidateQueries({ queryKey: ["friendships"] });
+            })
+            .catch(() => {});
+        }
         return;
       }
       setItems((prev) => prev.filter((n) => n.id !== id));
     },
-    [acceptRequest]
+    [user, queryClient]
   );
   const onDecline = useCallback(
     (id: string) => {
