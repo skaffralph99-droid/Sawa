@@ -1,2 +1,0 @@
-# Sawa
-Created by Rork

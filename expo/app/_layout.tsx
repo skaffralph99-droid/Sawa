@@ -1,0 +1,71 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
+import React, { useEffect } from "react";
+import { View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+
+import Colors from "@/constants/colors";
+import { LangProvider } from "@/constants/i18n";
+import { AuthProvider } from "@/constants/auth";
+import { LocalPlansProvider } from "@/constants/localPlans";
+import { FriendsProvider } from "@/constants/friends";
+
+SplashScreen.preventAutoHideAsync();
+
+const queryClient = new QueryClient();
+
+function RootLayoutNav() {
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: Colors.bg },
+        animation: "fade",
+      }}
+    >
+      <Stack.Screen name="index" />
+      <Stack.Screen name="phone" />
+      <Stack.Screen name="otp" />
+      <Stack.Screen name="profile" />
+      <Stack.Screen name="contacts" />
+      <Stack.Screen name="home" />
+      <Stack.Screen name="create" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
+      <Stack.Screen name="plan" />
+      <Stack.Screen name="camera" options={{ animation: "fade", presentation: "fullScreenModal" }} />
+      <Stack.Screen name="mosaic" options={{ animation: "fade" }} />
+      <Stack.Screen name="me" />
+      <Stack.Screen name="settings" />
+      <Stack.Screen name="friends" />
+      <Stack.Screen name="notifications" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
+      <Stack.Screen name="inbox" />
+      <Stack.Screen name="diagnostics" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <LangProvider>
+          <LocalPlansProvider>
+            <FriendsProvider>
+              <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.bg }}>
+                <View style={{ flex: 1, backgroundColor: Colors.bg }}>
+                  <StatusBar style="light" />
+                  <RootLayoutNav />
+                </View>
+              </GestureHandlerRootView>
+            </FriendsProvider>
+          </LocalPlansProvider>
+        </LangProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+}
