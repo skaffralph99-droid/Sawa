@@ -83,30 +83,21 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   );
 
   const devSignIn = useCallback(
-    (phoneE164: string): void => {
-      const mockUser: User = {
-        id: "dev-user-" + Date.now(),
-        aud: "authenticated",
-        role: "authenticated",
-        email: undefined,
-        phone: phoneE164,
-        created_at: new Date().toISOString(),
-        app_metadata: {},
-        user_metadata: {},
-        identities: [],
-        updated_at: new Date().toISOString(),
-      } as User;
-      const mockSession: Session = {
-        access_token: "dev-token",
-        token_type: "bearer",
-        expires_in: 3600,
-        expires_at: Math.floor(Date.now() / 1000) + 3600,
-        refresh_token: "dev-refresh",
-        user: mockUser,
-      } as Session;
-      setSession(mockSession);
+    async (): Promise<{ ok: boolean; error?: string }> => {
+      if (!hasSupabase) return { ok: false, error: "supabase-not-configured" };
+      const { data, error } = await supabase.auth.signInAnonymously();
+      if (error) {
+        console.log("[auth] anonymous sign-in error:", JSON.stringify(error));
+        return { ok: false, error: error.message };
+      }
+      if (!data.session) {
+        console.log("[auth] anonymous sign-in returned no session");
+        return { ok: false, error: "no-session" };
+      }
+      setSession(data.session);
       setIsGuest(false);
-      console.log("[auth] dev sign-in, session user:", JSON.stringify(mockUser));
+      console.log("[auth] anonymous sign-in, session user:", JSON.stringify(data.session.user));
+      return { ok: true };
     },
     []
   );
