@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Camera, Plus } from "lucide-react-native";
@@ -37,6 +37,8 @@ const NAME_MAX = 30 as const;
 export default function ProfileScreen() {
   const t = useT();
   const { saveProfile, hasSupabase, user } = useAuth();
+  const params = useLocalSearchParams<{ phone?: string }>();
+  const phoneFromParams = params.phone ?? user?.phone ?? null;
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [name, setName] = useState<string>("");
   const [isFocused, setIsFocused] = useState<boolean>(false);
@@ -104,7 +106,7 @@ export default function ProfileScreen() {
       if (photoUri) {
         avatarUrl = await uploadPhoto(photoUri, `avatars/${user.id}`);
       }
-      const res = await saveProfile({ name: trimmedName, avatarUrl });
+      const res = await saveProfile({ name: trimmedName, avatarUrl, phone: phoneFromParams });
       if (!res.ok) {
         console.log("[profile] save failed", res.error);
         setErrorMsg(res.error ?? t("ما قدرنا نحفظ الملف، جرّب مرة تانية"));

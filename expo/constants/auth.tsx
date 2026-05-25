@@ -135,39 +135,29 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   );
 
   const saveProfile = useCallback(
-    async (input: { name: string; avatarUrl: string | null }): Promise<{ ok: boolean; error?: string }> => {
+    async (input: { name: string; avatarUrl: string | null; phone?: string | null }): Promise<{ ok: boolean; error?: string }> => {
       if (!user || !hasSupabase) return { ok: false, error: "no-user" };
 
-      console.log("[auth] saveProfile uid:", user.id, "name:", input.name);
+      const phone = input.phone ?? user.phone ?? null;
+      console.log("[auth] saveProfile uid:", user.id, "name:", input.name, "phone:", phone);
 
-      // Use RPC function which bypasses RLS (security definer)
       const { data, error } = await supabase.rpc("upsert_my_profile", {
         p_name: input.name,
-        p_phone: user.phone ?? null,
+        p_phone: phone,
         p_avatar_url: input.avatarUrl ?? null,
       });
 
       if (error) {
         console.log("[auth] saveProfile RPC error:", error.message);
-        // Fallback: direct upsert
-        const row = { id: user.id, phone: user.phone ?? null, name: input.name, avatar_url: input.avatarUrl };
+        const row = { id: user.id, phone, name: input.name, avatar_url: input.avatarUrl };
         const { data: d2, error: e2 } = await supabase.from("profiles").upsert(row, { onConflict: "id" }).select().single();
-        if (e2) {
-          console.log("[auth] saveProfile fallback error:", e2.message);
-          return { ok: false, error: e2.message };
-        }
+        if (e2) { console.log("[auth] saveProfile fallback error:", e2.message); return { ok: false, error: e2.message }; }
         setProfile(d2 as ProfileRow);
         return { ok: true };
       }
 
-      const result = data as { ok: boolean; error?: string; id?: string; name?: string };
-      if (!result?.ok) {
-        console.log("[auth] saveProfile RPC returned not ok:", result);
-        return { ok: false, error: result?.error ?? "unknown" };
-      }
-
-      console.log("[auth] saveProfile OK:", result);
-      // Refresh profile from DB
+      const result = data as { ok: boolean; error?: string };
+      if (!result?.ok) return { ok: false, error: result?.error ?? "unknown" };
       const { data: fresh } = await supabase.from("profiles").select("*").eq("id", user.id).single();
       if (fresh) setProfile(fresh as ProfileRow);
       return { ok: true };

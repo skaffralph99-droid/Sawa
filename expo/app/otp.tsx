@@ -249,7 +249,7 @@ export default function OtpScreen() {
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     }
-    router.replace("/profile");
+    router.replace({ pathname: "/profile", params: { phone: `+961${raw}` } });
   };
 
   const handleBack = () => {
