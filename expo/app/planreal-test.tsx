@@ -1,7 +1,7 @@
 /**
- * PlanReal Test — Pack Opening Mosaic Reveal
- * Each photo revealed like opening a card pack.
- * Dark card flips to reveal the photo underneath.
+ * PlanReal Test — Pack Opening
+ * Parent controls ALL reveals via index state.
+ * Each card only opens when parent says so.
  */
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Stack } from "expo-router";
@@ -10,22 +10,14 @@ import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
 import { X, SwitchCamera, Check, ChevronLeft } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Animated,
-  Easing,
-  Image,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-  ScrollView,
+  Animated, Easing, Image, Platform,
+  Pressable, ScrollView, StyleSheet,
+  Text, View, useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as MediaLibrary from "expo-media-library";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
-
 import Colors from "@/constants/colors";
 
 const NAMES = ["You", "Ahmad", "Sara", "Khalil"];
@@ -44,22 +36,21 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
   const pulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     Animated.loop(Animated.sequence([
-      Animated.timing(pulse, { toValue: 1.1, duration: 750, useNativeDriver: true }),
-      Animated.timing(pulse, { toValue: 1, duration: 750, useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 1.1, duration: 700, useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
     ])).start();
   }, [pulse]);
-
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "space-between", padding: 32 }}>
       <View style={{ alignItems: "center", paddingTop: 40 }}>
         <Animated.Text style={{ fontSize: 80, transform: [{ scale: pulse }] }}>📦</Animated.Text>
         <Text style={{ color: Colors.text, fontSize: 28, fontWeight: "800", marginTop: 20, textAlign: "center" }}>PlanReal Test</Text>
         <Text style={{ color: Colors.textMuted, fontSize: 15, textAlign: "center", lineHeight: 22, marginTop: 8 }}>
-          {"Take 4 photos.\nWatch them reveal like opening a card pack."}
+          {"Take 4 photos.\nEach one is a sealed card.\nWatch them burst open one by one."}
         </Text>
       </View>
       <View style={{ width: "100%", gap: 12 }}>
-        {["Take 4 photos one by one", "Each photo = a sealed card", "Cards flip open one by one", "Mosaic locks in — share it"].map((label, i) => (
+        {["Take 4 photos one by one", "Each photo = a sealed mystery card", "Cards burst open one by one", "Mosaic locks in — share it"].map((label, i) => (
           <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
             <LinearGradient colors={[Colors.primary, Colors.secondary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" }}>
               <Text style={{ color: "#fff", fontSize: 14, fontWeight: "800" }}>{i + 1}</Text>
@@ -85,7 +76,6 @@ function CaptureScreen({ photos, onCapture }: { photos: string[]; onCapture: (ur
   const [capturing, setCapturing] = useState(false);
   const flashAnim = useRef(new Animated.Value(0)).current;
   const btnScale = useRef(new Animated.Value(1)).current;
-
   const shotIndex = photos.length;
   const name = NAMES[shotIndex] ?? "Friend";
   const isLast = shotIndex === SHOT_COUNT - 1;
@@ -95,9 +85,9 @@ function CaptureScreen({ photos, onCapture }: { photos: string[]; onCapture: (ur
     setCapturing(true);
     buzz(Haptics.ImpactFeedbackStyle.Heavy);
     flashAnim.setValue(1);
-    Animated.timing(flashAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+    Animated.timing(flashAnim, { toValue: 0, duration: 280, useNativeDriver: true }).start();
     Animated.sequence([
-      Animated.timing(btnScale, { toValue: 0.88, duration: 70, useNativeDriver: true }),
+      Animated.timing(btnScale, { toValue: 0.87, duration: 65, useNativeDriver: true }),
       Animated.spring(btnScale, { toValue: 1, useNativeDriver: true, speed: 28, bounciness: 14 }),
     ]).start();
     try {
@@ -126,12 +116,11 @@ function CaptureScreen({ photos, onCapture }: { photos: string[]; onCapture: (ur
       <LinearGradient colors={["rgba(13,11,30,0.92)", "transparent"]} style={{ position: "absolute", top: 0, left: 0, right: 0, height: 180 }} />
 
       <SafeAreaView edges={["top"]} style={{ position: "absolute", top: 0, left: 0, right: 0, alignItems: "center", paddingTop: 8 }}>
-        {/* Progress */}
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 10 }}>
           {Array.from({ length: SHOT_COUNT }).map((_, i) => (
             <View key={i} style={{
               width: 32, height: 32, borderRadius: 16,
-              backgroundColor: i < photos.length ? "#3DDC97" : i === shotIndex ? "transparent" : "rgba(255,255,255,0.1)",
+              backgroundColor: i < photos.length ? "#3DDC97" : "rgba(255,255,255,0.1)",
               borderWidth: i === shotIndex ? 2.5 : 1.5,
               borderColor: i < photos.length ? "#3DDC97" : i === shotIndex ? Colors.primary : "rgba(255,255,255,0.25)",
               alignItems: "center", justifyContent: "center",
@@ -151,11 +140,10 @@ function CaptureScreen({ photos, onCapture }: { photos: string[]; onCapture: (ur
         </Text>
       </SafeAreaView>
 
-      {/* Thumbnail strip */}
       {photos.length > 0 && (
-        <View style={{ position: "absolute", top: 140, left: 20, right: 20, flexDirection: "row", gap: 8 }}>
+        <View style={{ position: "absolute", top: 140, left: 20, flexDirection: "row", gap: 8 }}>
           {photos.map((uri, i) => (
-            <View key={i} style={{ width: 56, height: 56, borderRadius: 10, overflow: "hidden", borderWidth: 2, borderColor: "#3DDC97" }}>
+            <View key={i} style={{ width: 52, height: 52, borderRadius: 10, overflow: "hidden", borderWidth: 2, borderColor: "#3DDC97" }}>
               <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
             </View>
           ))}
@@ -164,12 +152,12 @@ function CaptureScreen({ photos, onCapture }: { photos: string[]; onCapture: (ur
 
       <LinearGradient colors={["transparent", "rgba(13,11,30,0.97)"]} style={{ position: "absolute", bottom: 0, left: 0, right: 0, paddingTop: 80 }}>
         <SafeAreaView edges={["bottom"]} style={{ alignItems: "center", paddingBottom: 24 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", paddingHorizontal: 56, marginBottom: 16 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", paddingHorizontal: 56, marginBottom: 14 }}>
             <Pressable onPress={() => { buzz(Haptics.ImpactFeedbackStyle.Light); setFacing((f) => f === "back" ? "front" : "back"); }} style={{ width: 52, height: 52, alignItems: "center", justifyContent: "center" }}>
               <SwitchCamera size={28} color="#fff" strokeWidth={2} />
             </Pressable>
             <Animated.View style={{ transform: [{ scale: btnScale }] }}>
-              <Pressable onPress={doCapture} disabled={capturing} style={{ width: 90, height: 90, borderRadius: 45, borderWidth: 4, borderColor: "rgba(255,255,255,0.65)", overflow: "hidden" }}>
+              <Pressable onPress={doCapture} disabled={capturing} style={{ width: 88, height: 88, borderRadius: 44, borderWidth: 4, borderColor: "rgba(255,255,255,0.65)", overflow: "hidden" }}>
                 <LinearGradient colors={[Colors.primary, Colors.secondary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
                   <Text style={{ fontSize: 36 }}>{isLast ? "⚡" : "📸"}</Text>
                 </LinearGradient>
@@ -183,150 +171,119 @@ function CaptureScreen({ photos, onCapture }: { photos: string[]; onCapture: (ur
   );
 }
 
-// ─── PACK OPENING CARD ────────────────────────────────────
-// Each card starts as a sealed dark card then "opens" to reveal the photo
+// ─── SINGLE CARD ──────────────────────────────────────────
+// revealed prop controlled by parent — NOT internal timers
 function PackCard({
-  uri, name, size, delay, onRevealed,
+  uri, name, size, revealed,
 }: {
-  uri: string; name: string; size: number; delay: number; onRevealed?: () => void;
+  uri: string; name: string; size: number; revealed: boolean;
 }) {
-  // Phase 0: sealed dark card
-  // Phase 1: card shakes/vibrates (anticipation)
-  // Phase 2: card "tears open" — scales up then reveals photo
-  // Phase 3: photo locked in
-
-  const sealed = useRef(new Animated.Value(1)).current;   // 1 = card face, 0 = photo
-  const shake = useRef(new Animated.Value(0)).current;
-  const cardScale = useRef(new Animated.Value(0)).current;
+  // Animation values
+  const sealedOpacity = useRef(new Animated.Value(1)).current;
   const photoOpacity = useRef(new Animated.Value(0)).current;
-  const glowAnim = useRef(new Animated.Value(0)).current;
-  const nameSlide = useRef(new Animated.Value(20)).current;
+  const cardScale = useRef(new Animated.Value(1)).current;
+  const shakeX = useRef(new Animated.Value(0)).current;
+  const glowOpacity = useRef(new Animated.Value(0)).current;
   const nameOpacity = useRef(new Animated.Value(0)).current;
+  const nameSlide = useRef(new Animated.Value(16)).current;
+  const hasAnimated = useRef(false);
 
   useEffect(() => {
-    const run = () => {
-      // Step 1: card slides/pops in from below
-      Animated.spring(cardScale, {
-        toValue: 1, useNativeDriver: true,
-        speed: 16, bounciness: 12,
-      }).start();
+    if (!revealed || hasAnimated.current) return;
+    hasAnimated.current = true;
 
-      // Step 2: after a moment — shake to build anticipation
-      setTimeout(() => {
-        buzz(Haptics.ImpactFeedbackStyle.Light);
-        Animated.sequence([
-          Animated.timing(shake, { toValue: 6, duration: 60, useNativeDriver: true }),
-          Animated.timing(shake, { toValue: -6, duration: 60, useNativeDriver: true }),
-          Animated.timing(shake, { toValue: 5, duration: 60, useNativeDriver: true }),
-          Animated.timing(shake, { toValue: -5, duration: 60, useNativeDriver: true }),
-          Animated.timing(shake, { toValue: 4, duration: 60, useNativeDriver: true }),
-          Animated.timing(shake, { toValue: -4, duration: 60, useNativeDriver: true }),
-          Animated.timing(shake, { toValue: 0, duration: 60, useNativeDriver: true }),
+    // 1. Shake — anticipation
+    Animated.sequence([
+      Animated.timing(shakeX, { toValue: 8, duration: 55, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: -8, duration: 55, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: 7, duration: 55, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: -7, duration: 55, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: 5, duration: 55, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: -5, duration: 55, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: 0, duration: 55, useNativeDriver: true }),
+    ]).start(() => {
+      // 2. BURST — heavy haptic + scale spike
+      buzz(Haptics.ImpactFeedbackStyle.Heavy);
+
+      Animated.sequence([
+        Animated.timing(cardScale, { toValue: 1.22, duration: 100, useNativeDriver: true, easing: Easing.out(Easing.ease) }),
+        Animated.spring(cardScale, { toValue: 1, useNativeDriver: true, speed: 24, bounciness: 8 }),
+      ]).start();
+
+      // 3. Sealed face OUT
+      Animated.timing(sealedOpacity, { toValue: 0, duration: 180, useNativeDriver: true }).start();
+
+      // 4. Photo IN
+      Animated.timing(photoOpacity, { toValue: 1, duration: 280, useNativeDriver: true }).start(() => {
+        // 5. Glow pulse
+        Animated.loop(Animated.sequence([
+          Animated.timing(glowOpacity, { toValue: 0.75, duration: 1000, useNativeDriver: true }),
+          Animated.timing(glowOpacity, { toValue: 0.2, duration: 1000, useNativeDriver: true }),
+        ])).start();
+        // 6. Name slides up
+        Animated.parallel([
+          Animated.timing(nameOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+          Animated.spring(nameSlide, { toValue: 0, useNativeDriver: true, speed: 22, bounciness: 10 }),
         ]).start();
-      }, 300);
-
-      // Step 3: BURST OPEN — big haptic + card scales up + photo floods in
-      setTimeout(() => {
-        buzz(Haptics.ImpactFeedbackStyle.Heavy);
-
-        // Card "rips" — scale spike then settle
-        Animated.sequence([
-          Animated.timing(cardScale, { toValue: 1.18, duration: 120, useNativeDriver: true, easing: Easing.out(Easing.ease) }),
-          Animated.spring(cardScale, { toValue: 1, useNativeDriver: true, speed: 22, bounciness: 8 }),
-        ]).start();
-
-        // Sealed card face fades out
-        Animated.timing(sealed, { toValue: 0, duration: 200, useNativeDriver: true }).start();
-
-        // Photo floods in
-        Animated.timing(photoOpacity, { toValue: 1, duration: 300, useNativeDriver: true }).start(() => {
-          // Glow pulse after reveal
-          Animated.loop(Animated.sequence([
-            Animated.timing(glowAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
-            Animated.timing(glowAnim, { toValue: 0.3, duration: 1200, useNativeDriver: true }),
-          ])).start();
-
-          // Name slides up
-          Animated.parallel([
-            Animated.spring(nameSlide, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 10 }),
-            Animated.timing(nameOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
-          ]).start();
-
-          onRevealed?.();
-        });
-      }, 800);
-    };
-
-    const timer = setTimeout(run, delay);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const glowOpacity = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.7] });
-  const sealedOpacity = sealed.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+      });
+    });
+  }, [revealed]);
 
   return (
     <Animated.View style={{
       width: size, height: size,
-      transform: [{ scale: cardScale }, { translateX: shake }],
+      transform: [{ scale: cardScale }, { translateX: shakeX }],
     }}>
-      {/* Glow behind card */}
+      {/* Glow */}
       <Animated.View pointerEvents="none" style={{
-        position: "absolute",
-        top: -12, left: -12, right: -12, bottom: -12,
-        borderRadius: 20,
-        opacity: glowOpacity,
+        position: "absolute", top: -10, left: -10, right: -10, bottom: -10,
+        borderRadius: 16, opacity: glowOpacity,
       }}>
-        <LinearGradient
-          colors={[Colors.primary + "CC", Colors.secondary + "CC"]}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={{ flex: 1, borderRadius: 20 }}
-        />
+        <LinearGradient colors={[Colors.primary + "CC", Colors.secondary + "CC"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, borderRadius: 16 }} />
       </Animated.View>
 
-      {/* Photo underneath */}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: photoOpacity, borderRadius: 12, overflow: "hidden" }]}>
+      {/* Photo */}
+      <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: 12, overflow: "hidden", opacity: photoOpacity }]}>
         <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-        {/* Name strip */}
-        <LinearGradient colors={["transparent", "rgba(0,0,0,0.8)"]} style={{ position: "absolute", bottom: 0, left: 0, right: 0, paddingTop: 32, paddingBottom: 8, paddingHorizontal: 10 }}>
-          <Animated.Text style={{ color: "#fff", fontSize: 14, fontWeight: "800", opacity: nameOpacity, transform: [{ translateY: nameSlide }] }}>
+        <LinearGradient colors={["transparent", "rgba(0,0,0,0.82)"]} style={{ position: "absolute", bottom: 0, left: 0, right: 0, paddingTop: 28, paddingBottom: 8, paddingHorizontal: 8 }}>
+          <Animated.Text style={{ color: "#fff", fontSize: 13, fontWeight: "800", opacity: nameOpacity, transform: [{ translateY: nameSlide }] }}>
             {name}
           </Animated.Text>
         </LinearGradient>
       </Animated.View>
 
-      {/* Sealed card face — on top until opened */}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: sealedOpacity, borderRadius: 12, overflow: "hidden" }]}>
-        <LinearGradient
-          colors={["#1A1730", "#0D0B1E", "#1A1730"]}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        {/* Card pattern */}
-        <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0.15 }}>
-          {Array.from({ length: 6 }).map((_, i) => (
+      {/* Sealed card */}
+      <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: 12, overflow: "hidden", opacity: sealedOpacity }]}>
+        <LinearGradient colors={["#1E1A38", "#0D0B1E", "#1E1A38"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+        {/* Diagonal lines */}
+        <View style={{ ...StyleSheet.absoluteFillObject, opacity: 0.12, overflow: "hidden" }}>
+          {Array.from({ length: 8 }).map((_, i) => (
             <View key={i} style={{
               position: "absolute",
-              top: `${i * 18}%`,
-              left: -20, right: -20,
-              height: 1,
-              backgroundColor: Colors.primary,
-              transform: [{ rotate: "-15deg" }],
+              top: `${i * 14 - 5}%`, left: -30, right: -30,
+              height: 1.5, backgroundColor: Colors.primary,
+              transform: [{ rotate: "-20deg" }],
             }} />
           ))}
         </View>
-        {/* Sawa logo on card */}
+        {/* Center icon */}
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <LinearGradient colors={[Colors.primary, Colors.secondary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: size * 0.45, height: size * 0.45, borderRadius: size * 0.12, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ fontSize: size * 0.2, fontWeight: "800", color: "#fff" }}>📸</Text>
+          <LinearGradient colors={[Colors.primary, Colors.secondary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: size * 0.42, height: size * 0.42, borderRadius: size * 0.1, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ fontSize: size * 0.18 }}>📸</Text>
           </LinearGradient>
-          <Text style={{ color: Colors.textMuted, fontSize: 11, fontWeight: "700", marginTop: 8, letterSpacing: 2 }}>SAWA</Text>
+          <Text style={{ color: "rgba(155,155,180,0.6)", fontSize: 10, fontWeight: "700", marginTop: 6, letterSpacing: 2.5 }}>SAWA</Text>
         </View>
-        {/* Shimmer overlay */}
-        <LinearGradient
-          colors={["transparent", "rgba(255,255,255,0.06)", "transparent"]}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
+        {/* Top + bottom label */}
+        <View style={{ position: "absolute", top: 8, left: 8, right: 8, flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: "rgba(255,107,53,0.5)", fontSize: 9, fontWeight: "800" }}>PLANREAL</Text>
+          <Text style={{ color: "rgba(255,107,53,0.5)", fontSize: 9, fontWeight: "800" }}>2025</Text>
+        </View>
+        <View style={{ position: "absolute", bottom: 8, left: 8, right: 8, flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: "rgba(255,60,172,0.5)", fontSize: 9, fontWeight: "800" }}>◈</Text>
+          <Text style={{ color: "rgba(255,60,172,0.5)", fontSize: 9, fontWeight: "800" }}>◈</Text>
+        </View>
+        {/* Shimmer */}
+        <LinearGradient colors={["transparent", "rgba(255,255,255,0.05)", "transparent"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
       </Animated.View>
     </Animated.View>
   );
@@ -335,27 +292,26 @@ function PackCard({
 // ─── MOSAIC REVEAL ────────────────────────────────────────
 function MosaicReveal({ photos }: { photos: string[] }) {
   const { width } = useWindowDimensions();
-  const mosaicSize = Math.min(width * 0.88, 370);
-  const GAP = 6;
-  const TILE = (mosaicSize - GAP) / 2;
+  const MOSAIC = Math.min(width * 0.88, 370);
+  const GAP = 8;
+  const TILE = (MOSAIC - GAP) / 2;
 
-  const [revealedCount, setRevealedCount] = useState(0);
-  const allRevealed = revealedCount >= SHOT_COUNT;
-
-  // Overall container
-  const containerScale = useRef(new Animated.Value(0.9)).current;
-  const containerOpacity = useRef(new Animated.Value(0)).current;
+  // Parent controls which cards are revealed
+  // Start at -1 (none revealed), tick up one by one
+  const [revealedIndex, setRevealedIndex] = useState(-1);
+  const allRevealed = revealedIndex >= SHOT_COUNT - 1;
 
   // Post-reveal elements
   const borderOpacity = useRef(new Animated.Value(0)).current;
   const vibeValue = useRef(new Animated.Value(0)).current;
   const shareSlide = useRef(new Animated.Value(80)).current;
   const shareOpacity = useRef(new Animated.Value(0)).current;
-  const titleAnim = useRef(new Animated.Value(0)).current;
+  const containerScale = useRef(new Animated.Value(0.92)).current;
+  const containerOpacity = useRef(new Animated.Value(0)).current;
 
   const mosaicRef = useRef<View>(null);
   const [vibeScore, setVibeScore] = useState(0);
-  const targetVibe = useRef(Math.floor(87 + Math.random() * 13)).current;
+  const targetVibe = useRef(Math.floor(88 + Math.random() * 12)).current;
   const [selectedReaction, setSelectedReaction] = useState<string | null>(null);
   const [reactions, setReactions] = useState([
     { id: "r1", emoji: "😂", count: 3 },
@@ -365,36 +321,47 @@ function MosaicReveal({ photos }: { photos: string[] }) {
     { id: "r5", emoji: "🤯", count: 2 },
   ]);
 
-  // Container pops in immediately
+  // Step 1: Container pops in
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(containerOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.timing(containerOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
       Animated.spring(containerScale, { toValue: 1, useNativeDriver: true, speed: 12, bounciness: 8 }),
     ]).start();
 
-    Animated.timing(titleAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+    // Step 2: Start revealing cards one at a time
+    // Each card: 500ms shake animation + 400ms burst = ~900ms total
+    // Wait 1400ms between each card start to let shake complete fully
+    const BETWEEN = 1600; // ms between each card starting
+
+    // Card 0 starts after 800ms (let mosaic settle first)
+    const t0 = setTimeout(() => setRevealedIndex(0), 800);
+    const t1 = setTimeout(() => setRevealedIndex(1), 800 + BETWEEN);
+    const t2 = setTimeout(() => setRevealedIndex(2), 800 + BETWEEN * 2);
+    const t3 = setTimeout(() => setRevealedIndex(3), 800 + BETWEEN * 3);
+
+    return () => { clearTimeout(t0); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, []);
 
-  // After all cards revealed
+  // Step 3: After all revealed
   useEffect(() => {
     if (!allRevealed) return;
-
     notify(Haptics.NotificationFeedbackType.Success);
 
-    // Gradient border appears
-    Animated.timing(borderOpacity, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+    setTimeout(() => {
+      Animated.timing(borderOpacity, { toValue: 1, duration: 700, useNativeDriver: true }).start();
+    }, 400);
 
-    // Vibe score counts
-    vibeValue.addListener(({ value }) => setVibeScore(Math.floor(value)));
-    Animated.timing(vibeValue, { toValue: targetVibe, duration: 2200, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+    setTimeout(() => {
+      vibeValue.addListener(({ value }) => setVibeScore(Math.floor(value)));
+      Animated.timing(vibeValue, { toValue: targetVibe, duration: 2000, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+    }, 800);
 
-    // Share slides up
     setTimeout(() => {
       Animated.parallel([
         Animated.spring(shareSlide, { toValue: 0, useNativeDriver: true, speed: 16, bounciness: 12 }),
         Animated.timing(shareOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
       ]).start();
-    }, 600);
+    }, 1400);
 
     return () => { vibeValue.removeAllListeners(); };
   }, [allRevealed]);
@@ -423,70 +390,67 @@ function MosaicReveal({ photos }: { photos: string[] }) {
 
   const vibeEmoji = targetVibe >= 95 ? "🔥🔥🔥" : targetVibe >= 90 ? "🔥🔥" : "🔥";
 
-  // Pack opening delays — stagger each card
-  // Card 0: starts at 400ms
-  // Card 1: starts at 1800ms
-  // Card 2: starts at 3200ms
-  // Card 3: starts at 4600ms
-  const CARD_DELAYS = [400, 1800, 3200, 4600];
-
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: Colors.bg }}
-      contentContainerStyle={{ alignItems: "center", paddingTop: 20, paddingBottom: 60, gap: 20 }}
+      contentContainerStyle={{ alignItems: "center", paddingTop: 16, paddingBottom: 60, gap: 20 }}
       showsVerticalScrollIndicator={false}
     >
       {/* Title */}
-      <Animated.View style={{ alignItems: "center", opacity: titleAnim }}>
-        <Text style={{ color: Colors.text, fontSize: 26, fontWeight: "800" }}>
+      <View style={{ alignItems: "center" }}>
+        <Text style={{ color: Colors.text, fontSize: 24, fontWeight: "800" }}>
           {allRevealed ? "Your Mosaic 🔥" : "Opening Pack..."}
         </Text>
-        <Text style={{ color: Colors.textMuted, fontSize: 13, marginTop: 4 }}>
-          {allRevealed ? "Same moment — 4 angles" : `${revealedCount} of ${SHOT_COUNT} revealed`}
+        <Text style={{ color: Colors.textMuted, fontSize: 13, marginTop: 3 }}>
+          {allRevealed
+            ? "Same moment — 4 angles"
+            : `${Math.max(0, revealedIndex + 1)} of ${SHOT_COUNT} revealed`
+          }
         </Text>
-      </Animated.View>
+      </View>
 
-      {/* Mosaic with pack-opening cards */}
+      {/* Mosaic */}
       <Animated.View style={{ opacity: containerOpacity, transform: [{ scale: containerScale }] }}>
 
-        {/* Gradient border — appears after all revealed */}
-        <Animated.View style={{ opacity: borderOpacity, borderRadius: 22, padding: 2.5 }}>
+        {/* Gradient border — animated on after reveal */}
+        <Animated.View style={{ opacity: borderOpacity }}>
           <LinearGradient
             colors={[Colors.primary, Colors.secondary, Colors.accent]}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={{ borderRadius: 20, padding: 2.5 }}
+            style={{ borderRadius: 22, padding: 2.5 }}
           >
             <View
               ref={mosaicRef}
               style={{
-                width: mosaicSize, height: mosaicSize,
+                width: MOSAIC, height: MOSAIC,
                 backgroundColor: Colors.bg,
-                borderRadius: 18, overflow: "hidden",
-                padding: GAP / 2,
+                borderRadius: 20, overflow: "hidden",
               }}
             >
-              {/* 2x2 grid */}
-              <View style={{ flex: 1, flexDirection: "row", gap: GAP }}>
+              {/* GRID: 2 columns side by side */}
+              <View style={{ flex: 1, flexDirection: "row", padding: 6, gap: GAP }}>
+                {/* LEFT COLUMN */}
                 <View style={{ flex: 1, gap: GAP }}>
-                  <PackCard uri={photos[0]} name={NAMES[0]} size={TILE} delay={CARD_DELAYS[0]} onRevealed={() => setRevealedCount((c) => c + 1)} />
-                  <PackCard uri={photos[2]} name={NAMES[2]} size={TILE} delay={CARD_DELAYS[2]} onRevealed={() => setRevealedCount((c) => c + 1)} />
+                  <PackCard uri={photos[0]} name={NAMES[0]} size={TILE} revealed={revealedIndex >= 0} />
+                  <PackCard uri={photos[2]} name={NAMES[2]} size={TILE} revealed={revealedIndex >= 2} />
                 </View>
+                {/* RIGHT COLUMN */}
                 <View style={{ flex: 1, gap: GAP }}>
-                  <PackCard uri={photos[1]} name={NAMES[1]} size={TILE} delay={CARD_DELAYS[1]} onRevealed={() => setRevealedCount((c) => c + 1)} />
-                  <PackCard uri={photos[3]} name={NAMES[3]} size={TILE} delay={CARD_DELAYS[3]} onRevealed={() => setRevealedCount((c) => c + 1)} />
+                  <PackCard uri={photos[1]} name={NAMES[1]} size={TILE} revealed={revealedIndex >= 1} />
+                  <PackCard uri={photos[3]} name={NAMES[3]} size={TILE} revealed={revealedIndex >= 3} />
                 </View>
               </View>
 
               {/* Meta bar */}
-              <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 10, paddingVertical: 5, backgroundColor: "rgba(13,11,30,0.55)" }}>
-                <Text style={{ color: "rgba(155,155,180,0.85)", fontSize: 10, fontWeight: "600" }}>📍 Zahle · Now</Text>
-                <Text style={{ color: "rgba(155,155,180,0.85)", fontSize: 10, fontWeight: "600" }}>Sawa ◈</Text>
+              <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 10, paddingVertical: 5, backgroundColor: "rgba(13,11,30,0.6)" }}>
+                <Text style={{ color: "rgba(155,155,180,0.8)", fontSize: 10, fontWeight: "600" }}>📍 Zahle · Now</Text>
+                <Text style={{ color: "rgba(155,155,180,0.8)", fontSize: 10, fontWeight: "600" }}>Sawa ◈</Text>
               </View>
             </View>
           </LinearGradient>
         </Animated.View>
 
-        {/* Plain border while building — hides under gradient border */}
+        {/* Plain border while building */}
         <Animated.View
           pointerEvents="none"
           style={[StyleSheet.absoluteFill, {
@@ -498,7 +462,7 @@ function MosaicReveal({ photos }: { photos: string[] }) {
         />
       </Animated.View>
 
-      {/* Vibe score — after reveal */}
+      {/* Vibe score */}
       <Animated.View style={{ opacity: shareOpacity, alignItems: "center" }}>
         <Text style={{ color: Colors.textMuted, fontSize: 15, fontWeight: "600" }}>
           {"Tonight's vibe: "}
@@ -518,12 +482,7 @@ function MosaicReveal({ photos }: { photos: string[] }) {
               setSelectedReaction(was ? null : r.id);
               setReactions((prev) => prev.map((x) => x.id === r.id ? { ...x, count: was ? x.count - 1 : x.count + 1 } : x));
             }}
-            style={{
-              flexDirection: "row", alignItems: "center", gap: 5,
-              backgroundColor: Colors.card, borderRadius: 20,
-              paddingHorizontal: 12, paddingVertical: 8,
-              borderWidth: 1, borderColor: selectedReaction === r.id ? Colors.primary : "#2D2A45",
-            }}
+            style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: Colors.card, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: selectedReaction === r.id ? Colors.primary : "#2D2A45" }}
           >
             <Text style={{ fontSize: 17 }}>{r.emoji}</Text>
             <Text style={{ color: Colors.textMuted, fontSize: 13, fontWeight: "700" }}>{r.count}</Text>
@@ -531,7 +490,7 @@ function MosaicReveal({ photos }: { photos: string[] }) {
         ))}
       </Animated.View>
 
-      {/* Share + Save */}
+      {/* Buttons */}
       <Animated.View style={{ width: "85%", gap: 12, opacity: shareOpacity, transform: [{ translateY: shareSlide }] }}>
         <Pressable onPress={handleShare} style={{ height: 56, borderRadius: 28, overflow: "hidden" }}>
           <LinearGradient colors={[Colors.primary, Colors.secondary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
