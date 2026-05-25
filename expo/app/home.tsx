@@ -11,6 +11,8 @@ import {
   Clock,
   Users,
   Sparkles,
+  Flame,
+  Circle,
 } from "lucide-react-native";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
@@ -546,9 +548,10 @@ export default function HomeScreen() {
 
   const navItems = useMemo(
     () => [
-      { id: "home", label: "الرئيسية", icon: HomeIcon, active: true },
-      { id: "discover", label: "اكتشف", icon: Search, active: false },
-      { id: "me", label: "أنا", icon: UserIcon, active: false },
+      { id: "home", label: "Home", icon: HomeIcon, active: true, route: null },
+      { id: "heatmap", label: "Energy", icon: Flame, active: false, route: "/heatmap" },
+      { id: "circles", label: "Circles", icon: Users, active: false, route: "/circles" },
+      { id: "me", label: "Me", icon: UserIcon, active: false, route: "/me" },
     ],
     []
   );
@@ -712,8 +715,10 @@ export default function HomeScreen() {
                   if (Platform.OS !== "web") Haptics.selectionAsync().catch(() => {});
                   if (item.id === "me") {
                     router.push("/me");
-                  } else if (item.id === "discover") {
-                    router.push("/friends");
+                  } else if (item.id === "heatmap") {
+                    router.push("/heatmap");
+                  } else if (item.id === "circles") {
+                    router.push("/circles");
                   }
                 }}
               >

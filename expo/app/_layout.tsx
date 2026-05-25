@@ -56,6 +56,8 @@ function RootLayoutNav() {
       <Stack.Screen name="notifications" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
       <Stack.Screen name="inbox" />
       <Stack.Screen name="diagnostics" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
+      <Stack.Screen name="circles" />
+      <Stack.Screen name="heatmap" />
     </Stack>
   );
 }
