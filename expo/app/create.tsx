@@ -71,6 +71,7 @@ export default function CreatePlanScreen() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [invitedIds, setInvitedIds] = useState<string[]>([]);
+  const [planMode, setPlanMode] = useState<"now" | "schedule">("now");
 
   const friendsQuery = useQuery<FriendRow[]>({
     queryKey: ["friends-for-invite", user?.id ?? null],
@@ -162,8 +163,8 @@ export default function CreatePlanScreen() {
       const fullTitle = emoji ? `${emoji} ${title.trim()}` : title.trim();
 
       const now = new Date();
-      const startsAt = new Date(now.getTime() + 60 * 60 * 1000);
-      const endsAt = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+      const startsAt = planMode === "now" ? now : new Date(now.getTime() + 60 * 60 * 1000);
+      const endsAt = planMode === "now" ? new Date(now.getTime() + 3 * 60 * 60 * 1000) : new Date(now.getTime() + 4 * 60 * 60 * 1000);
 
       const { ok, planId, error } = await createPlan({
         ownerId: user.id,
@@ -237,6 +238,63 @@ export default function CreatePlanScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
+            {/* Right Now vs Schedule toggle */}
+            <View style={{ flexDirection: "row", gap: 10, marginBottom: 20 }}>
+              <Pressable
+                onPress={() => { haptic("select"); setPlanMode("now"); }}
+                style={{
+                  flex: 1, height: 52, borderRadius: 16,
+                  alignItems: "center", justifyContent: "center",
+                  overflow: "hidden",
+                  borderWidth: planMode !== "now" ? 1 : 0,
+                  borderColor: "#2D2A45",
+                  backgroundColor: planMode !== "now" ? "#1A1730" : undefined,
+                }}
+              >
+                {planMode === "now" ? (
+                  <LinearGradient
+                    colors={["#FF6B35", "#FF3CAC"]}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={{ ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>{"⚡ Right Now"}</Text>
+                  </LinearGradient>
+                ) : (
+                  <Text style={{ color: "#9B9BB4", fontWeight: "600", fontSize: 15 }}>{"⚡ Right Now"}</Text>
+                )}
+              </Pressable>
+              <Pressable
+                onPress={() => { haptic("select"); setPlanMode("schedule"); }}
+                style={{
+                  flex: 1, height: 52, borderRadius: 16,
+                  alignItems: "center", justifyContent: "center",
+                  overflow: "hidden",
+                  borderWidth: planMode !== "schedule" ? 1 : 0,
+                  borderColor: "#2D2A45",
+                  backgroundColor: planMode !== "schedule" ? "#1A1730" : undefined,
+                }}
+              >
+                {planMode === "schedule" ? (
+                  <LinearGradient
+                    colors={["#FF6B35", "#FF3CAC"]}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={{ ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>{"📅 Schedule"}</Text>
+                  </LinearGradient>
+                ) : (
+                  <Text style={{ color: "#9B9BB4", fontWeight: "600", fontSize: 15 }}>{"📅 Schedule"}</Text>
+                )}
+              </Pressable>
+            </View>
+            {planMode === "now" && (
+              <View style={{ backgroundColor: "#1A1730", borderRadius: 12, padding: 12, marginBottom: 16 }}>
+                <Text style={{ color: "#9B9BB4", fontSize: 13, textAlign: "center" }}>
+                  {"🎲 PlanReal will fire within the next 3 hours"}
+                </Text>
+              </View>
+            )}
+
             {/* Activity selector */}
             <Text style={styles.label}>{"What's the plan?"}</Text>
             <View style={styles.activityGrid}>
