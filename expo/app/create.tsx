@@ -121,7 +121,7 @@ export default function CreatePlanScreen() {
   }, [haptic]);
 
   const isReady =
-    activity !== null && title.trim().length > 0 && location.trim().length > 0;
+    activity !== null && title.trim().length > 0;
 
   const onClose = useCallback(() => {
     haptic("light");
@@ -129,7 +129,19 @@ export default function CreatePlanScreen() {
   }, [haptic]);
 
   const onSubmit = useCallback(async () => {
-    if (!isReady || submitting) return;
+    if (submitting) return;
+    if (!isReady) {
+      // Tell user what is missing
+      if (activity === null) {
+        Alert.alert("Pick an activity", "Choose an activity type before posting.");
+        return;
+      }
+      if (title.trim().length === 0) {
+        Alert.alert("Add a title", "Give your plan a title before posting.");
+        return;
+      }
+      return;
+    }
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     }
@@ -819,9 +831,8 @@ function Header({
 
       <Pressable
         onPress={onPost}
-        disabled={!canPost}
         hitSlop={12}
-        style={({ pressed }) => [styles.headerBtn, styles.postBtn, pressed && canPost && { opacity: 0.7 }]}
+        style={({ pressed }) => [styles.headerBtn, styles.postBtn, pressed && { opacity: 0.7 }]}
       >
         {canPost ? (
           <MaskedGradientText text={"Post"} />
