@@ -563,6 +563,12 @@ export default function HomeScreen() {
         <View style={styles.topBar}>
           <Text style={styles.brand}>{t("سوا")}</Text>
           <View style={styles.topActions}>
+            <Pressable
+              onPress={() => { if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); router.push("/planreal-test"); }}
+              style={styles.bellBtn}
+            >
+              <Text style={{ fontSize: 18 }}>📸</Text>
+            </Pressable>
             <Pressable style={styles.bellBtn} onPress={() => router.push("/inbox")}>
               <Bell size={20} color={Colors.text} strokeWidth={2.2} />
               <View style={styles.notifDot} />

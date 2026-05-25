@@ -58,6 +58,7 @@ function RootLayoutNav() {
       <Stack.Screen name="diagnostics" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
       <Stack.Screen name="circles" />
       <Stack.Screen name="heatmap" />
+      <Stack.Screen name="planreal-test" options={{ animation: "slide_from_bottom", presentation: "fullScreenModal" }} />
     </Stack>
   );
 }
