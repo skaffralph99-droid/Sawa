@@ -85,18 +85,33 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const devSignIn = useCallback(
     async (): Promise<{ ok: boolean; error?: string }> => {
       if (!hasSupabase) return { ok: false, error: "supabase-not-configured" };
-      const { data, error } = await supabase.auth.signInAnonymously();
-      if (error) {
-        console.log("[auth] anonymous sign-in error:", JSON.stringify(error));
-        return { ok: false, error: error.message };
+      // Try anonymous first — works if enabled in Supabase dashboard
+      const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+      if (!anonError && anonData.session) {
+        setSession(anonData.session);
+        setIsGuest(false);
+        console.log("[auth] dev sign-in (anonymous) OK, uid:", anonData.session.user.id);
+        return { ok: true };
       }
-      if (!data.session) {
-        console.log("[auth] anonymous sign-in returned no session");
-        return { ok: false, error: "no-session" };
+      // Fallback: use test phone OTP if anonymous is disabled
+      console.log("[auth] anonymous failed, trying test phone OTP:", anonError?.message);
+      const { error: otpErr } = await supabase.auth.signInWithOtp({ phone: "+96170000001" });
+      if (otpErr) {
+        console.log("[auth] test OTP send error:", otpErr.message);
+        return { ok: false, error: otpErr.message };
       }
-      setSession(data.session);
+      const { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
+        phone: "+96170000001",
+        token: "123456",
+        type: "sms",
+      });
+      if (verifyErr || !verifyData.session) {
+        console.log("[auth] test OTP verify error:", verifyErr?.message);
+        return { ok: false, error: verifyErr?.message ?? "no-session" };
+      }
+      setSession(verifyData.session);
       setIsGuest(false);
-      console.log("[auth] anonymous sign-in, session user:", JSON.stringify(data.session.user));
+      console.log("[auth] dev sign-in (test phone) OK, uid:", verifyData.session.user.id);
       return { ok: true };
     },
     []
