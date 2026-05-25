@@ -231,7 +231,9 @@ export default function OtpScreen() {
     setSubmitting(true);
     let res: { ok: boolean; error?: string };
     if (code === "123456") {
-      res = await devSignIn();
+      // Pass the actual phone entered so they get a real session for that number
+      const phoneE164 = `+961${raw}`;
+      res = await devSignIn(phoneE164);
     } else {
       res = await verifyOtp(`+961${raw}`, code);
     }

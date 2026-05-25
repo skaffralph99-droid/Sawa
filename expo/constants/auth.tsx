@@ -83,35 +83,52 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   );
 
   const devSignIn = useCallback(
-    async (): Promise<{ ok: boolean; error?: string }> => {
+    async (phoneE164?: string): Promise<{ ok: boolean; error?: string }> => {
       if (!hasSupabase) return { ok: false, error: "supabase-not-configured" };
-      // Try anonymous first — works if enabled in Supabase dashboard
-      const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
-      if (!anonError && anonData.session) {
-        setSession(anonData.session);
-        setIsGuest(false);
-        console.log("[auth] dev sign-in (anonymous) OK, uid:", anonData.session.user.id);
-        return { ok: true };
-      }
-      // Fallback: use test phone OTP if anonymous is disabled
-      console.log("[auth] anonymous failed, trying test phone OTP:", anonError?.message);
-      const { error: otpErr } = await supabase.auth.signInWithOtp({ phone: "+96170000001" });
+
+      // Use the phone number passed in (from OTP screen) or default test number
+      const phone = phoneE164 ?? "+96170000001";
+
+      console.log("[auth] devSignIn — sending OTP to", phone);
+
+      // Step 1: Send OTP
+      const { error: otpErr } = await supabase.auth.signInWithOtp({ phone });
       if (otpErr) {
-        console.log("[auth] test OTP send error:", otpErr.message);
+        console.log("[auth] devSignIn OTP send error:", otpErr.message);
+        // If sending OTP fails — try anonymous as last resort
+        const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+        if (!anonError && anonData.session) {
+          setSession(anonData.session);
+          setIsGuest(false);
+          console.log("[auth] devSignIn fallback anonymous OK, uid:", anonData.session.user.id);
+          return { ok: true };
+        }
         return { ok: false, error: otpErr.message };
       }
+
+      // Step 2: Verify with 123456
       const { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
-        phone: "+96170000001",
+        phone,
         token: "123456",
         type: "sms",
       });
+
       if (verifyErr || !verifyData.session) {
-        console.log("[auth] test OTP verify error:", verifyErr?.message);
-        return { ok: false, error: verifyErr?.message ?? "no-session" };
+        console.log("[auth] devSignIn OTP verify error:", verifyErr?.message);
+        // Fallback to anonymous
+        const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+        if (!anonError && anonData.session) {
+          setSession(anonData.session);
+          setIsGuest(false);
+          console.log("[auth] devSignIn fallback anonymous OK, uid:", anonData.session.user.id);
+          return { ok: true };
+        }
+        return { ok: false, error: verifyErr?.message ?? "verify-failed" };
       }
+
       setSession(verifyData.session);
       setIsGuest(false);
-      console.log("[auth] dev sign-in (test phone) OK, uid:", verifyData.session.user.id);
+      console.log("[auth] devSignIn OK, uid:", verifyData.session.user.id, "phone:", phone);
       return { ok: true };
     },
     []
