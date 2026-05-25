@@ -93,7 +93,28 @@ export async function createPlan(params: {
   dateLabel?: string;
   startsAt?: Date;
   endsAt?: Date;
+  circleId?: string;
 }): Promise<{ ok: boolean; planId?: string; error?: string }> {
+  // Try RPC first — bypasses RLS regardless of auth type
+  const { data: rpcData, error: rpcError } = await supabase.rpc("create_my_plan", {
+    p_title: params.title,
+    p_location: params.location || null,
+    p_activity_type: params.activityType,
+    p_privacy: params.privacy,
+    p_max_people: params.maxPeople,
+    p_starts_at: params.startsAt?.toISOString() ?? new Date().toISOString(),
+    p_ends_at: params.endsAt?.toISOString() ?? new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+    p_circle_id: params.circleId ?? null,
+  });
+
+  if (!rpcError && rpcData?.ok) {
+    console.log("[plans] createPlan RPC OK, planId:", rpcData.planId);
+    return { ok: true, planId: rpcData.planId };
+  }
+
+  console.log("[plans] createPlan RPC error:", rpcError?.message, "— trying direct insert");
+
+  // Fallback: direct insert
   const { data, error } = await supabase
     .from("plans")
     .insert({
@@ -108,10 +129,17 @@ export async function createPlan(params: {
       starts_at: params.startsAt?.toISOString() ?? null,
       ends_at: params.endsAt?.toISOString() ?? null,
       status: "active",
+      plan_visibility: params.privacy,
+      mosaic_visibility: "public",
+      circle_id: params.circleId ?? null,
     })
     .select("id")
     .single();
-  if (error) return { ok: false, error: error.message };
+
+  if (error) {
+    console.log("[plans] createPlan direct insert error:", error.message);
+    return { ok: false, error: error.message };
+  }
 
   await supabase.from("plan_members").insert({
     plan_id: data.id,

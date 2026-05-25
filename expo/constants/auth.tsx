@@ -137,40 +137,39 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const saveProfile = useCallback(
     async (input: { name: string; avatarUrl: string | null }): Promise<{ ok: boolean; error?: string }> => {
       if (!user || !hasSupabase) return { ok: false, error: "no-user" };
-      const row = {
-        id: user.id,
-        phone: user.phone ?? null,
-        name: input.name,
-        avatar_url: input.avatarUrl,
-      };
-      console.log("[auth] saveProfile upserting row:", JSON.stringify(row));
-      console.log("[auth] current user id:", user.id, "role:", user.role, "aud:", user.aud);
 
-      // First try upsert
-      const { data, error } = await supabase
-        .from("profiles")
-        .upsert(row, { onConflict: "id" })
-        .select()
-        .single();
+      console.log("[auth] saveProfile uid:", user.id, "name:", input.name);
+
+      // Use RPC function which bypasses RLS (security definer)
+      const { data, error } = await supabase.rpc("upsert_my_profile", {
+        p_name: input.name,
+        p_phone: user.phone ?? null,
+        p_avatar_url: input.avatarUrl ?? null,
+      });
 
       if (error) {
-        console.log("[auth] saveProfile upsert error:", JSON.stringify(error));
-        // Try insert as fallback
-        const { data: insertData, error: insertError } = await supabase
-          .from("profiles")
-          .insert(row)
-          .select()
-          .single();
-        if (insertError) {
-          console.log("[auth] saveProfile insert error:", JSON.stringify(insertError));
-          return { ok: false, error: insertError.message };
+        console.log("[auth] saveProfile RPC error:", error.message);
+        // Fallback: direct upsert
+        const row = { id: user.id, phone: user.phone ?? null, name: input.name, avatar_url: input.avatarUrl };
+        const { data: d2, error: e2 } = await supabase.from("profiles").upsert(row, { onConflict: "id" }).select().single();
+        if (e2) {
+          console.log("[auth] saveProfile fallback error:", e2.message);
+          return { ok: false, error: e2.message };
         }
-        console.log("[auth] saveProfile insert result:", JSON.stringify(insertData));
-        setProfile(insertData as ProfileRow);
+        setProfile(d2 as ProfileRow);
         return { ok: true };
       }
-      console.log("[auth] saveProfile upsert result:", JSON.stringify(data));
-      setProfile(data as ProfileRow);
+
+      const result = data as { ok: boolean; error?: string; id?: string; name?: string };
+      if (!result?.ok) {
+        console.log("[auth] saveProfile RPC returned not ok:", result);
+        return { ok: false, error: result?.error ?? "unknown" };
+      }
+
+      console.log("[auth] saveProfile OK:", result);
+      // Refresh profile from DB
+      const { data: fresh } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+      if (fresh) setProfile(fresh as ProfileRow);
       return { ok: true };
     },
     [user]
