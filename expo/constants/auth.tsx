@@ -144,17 +144,32 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         avatar_url: input.avatarUrl,
       };
       console.log("[auth] saveProfile upserting row:", JSON.stringify(row));
+      console.log("[auth] current user id:", user.id, "role:", user.role, "aud:", user.aud);
+
+      // First try upsert
       const { data, error } = await supabase
         .from("profiles")
         .upsert(row, { onConflict: "id" })
         .select()
         .single();
+
       if (error) {
         console.log("[auth] saveProfile upsert error:", JSON.stringify(error));
-        return { ok: false, error: error.message };
+        // Try insert as fallback
+        const { data: insertData, error: insertError } = await supabase
+          .from("profiles")
+          .insert(row)
+          .select()
+          .single();
+        if (insertError) {
+          console.log("[auth] saveProfile insert error:", JSON.stringify(insertError));
+          return { ok: false, error: insertError.message };
+        }
+        console.log("[auth] saveProfile insert result:", JSON.stringify(insertData));
+        setProfile(insertData as ProfileRow);
+        return { ok: true };
       }
       console.log("[auth] saveProfile upsert result:", JSON.stringify(data));
-      console.log("[auth] profile saved, user:", JSON.stringify(user));
       setProfile(data as ProfileRow);
       return { ok: true };
     },
