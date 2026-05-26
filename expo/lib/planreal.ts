@@ -49,7 +49,8 @@ export async function checkAndFirePlanReal(planId: string): Promise<{
 export async function submitPlanRealPhoto(
  planId: string,
  userId: string,
- photoUri: string
+ photoUri: string,
+ isSelfie: boolean = false
 ): Promise<{ ok: boolean; photoUrl?: string; error?: string }> {
  const fileName = `planreal/${planId}/${userId}_${Date.now()}.jpg`;
  const response = await fetch(photoUri);
