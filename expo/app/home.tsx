@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import {
   Bell,
@@ -34,7 +34,7 @@ import { useAuth } from "@/constants/auth";
 import { useLocalPlans, type LocalPlan } from "@/constants/localPlans";
 import { supabase, hasSupabase } from "@/lib/supabase";
 import { fetchActivePlans } from "@/lib/plans";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const DEFAULT_AVATAR_URL =
   "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop&crop=faces";
@@ -468,6 +468,18 @@ export default function HomeScreen() {
   const { mode, profile, user } = useAuth();
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["id"]>("plans");
   const [activeFilter, setActiveFilter] = useState<string>("All");
+
+  const queryClient = useQueryClient();
+
+  // Refetch plans every time the home screen gains focus
+  // (e.g. when user comes back from the create plan modal)
+  useFocusEffect(
+    useCallback(() => {
+      if (hasSupabase && mode === "signedIn") {
+        queryClient.invalidateQueries({ queryKey: ["plans"] });
+      }
+    }, [hasSupabase, mode, queryClient])
+  );
 
   const plansQuery = useQuery<Plan[]>({
     queryKey: ["plans"],
