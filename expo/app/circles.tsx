@@ -96,18 +96,12 @@ export default function CirclesScreen() {
   const joinCircle = useCallback(async (circle: Circle) => {
     if (!user) return;
     haptic();
-    const { error } = await supabase.from("circle_members").insert({
-      circle_id: circle.id,
-      user_id: user.id,
-      role: "member",
-    });
-    if (error) {
-      Alert.alert("Error", error.message);
+    // Use RPC which respects RLS and handles member_count via DB trigger
+    const { data: rpcData, error } = await supabase.rpc("join_circle", { p_circle_id: circle.id });
+    if (error || !(rpcData as any)?.ok) {
+      Alert.alert("Error", error?.message ?? (rpcData as any)?.error ?? "Could not join circle");
       return;
     }
-    await supabase.from("circles")
-      .update({ member_count: circle.member_count + 1 })
-      .eq("id", circle.id);
     queryClient.invalidateQueries({ queryKey: ["circles-all"] });
     queryClient.invalidateQueries({ queryKey: ["my-circle-ids"] });
   }, [user, haptic, queryClient]);
@@ -115,14 +109,9 @@ export default function CirclesScreen() {
   const leaveCircle = useCallback(async (circle: Circle) => {
     if (!user) return;
     haptic();
-    const { error } = await supabase.from("circle_members")
-      .delete()
-      .eq("circle_id", circle.id)
-      .eq("user_id", user.id);
+    // Use RPC — member_count decremented automatically by DB trigger
+    const { data: rpcData, error } = await supabase.rpc("leave_circle", { p_circle_id: circle.id });
     if (error) { Alert.alert("Error", error.message); return; }
-    await supabase.from("circles")
-      .update({ member_count: Math.max(0, circle.member_count - 1) })
-      .eq("id", circle.id);
     queryClient.invalidateQueries({ queryKey: ["circles-all"] });
     queryClient.invalidateQueries({ queryKey: ["my-circle-ids"] });
   }, [user, haptic, queryClient]);
