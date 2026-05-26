@@ -223,9 +223,9 @@ export default function MeScreen() {
   const momentsCount = timelinePlans.filter((p) => p.mosaic_url).length;
   const stats: Stat[] = useMemo(
     () => [
-      { value: String(planCount), label: "بلان" },
-      { value: String(momentsCount), label: "لحظة" },
-      { value: String(friendsCountQuery.data ?? 0), label: "صاحب" },
+      { value: String(planCount), label: "Plans" },
+      { value: String(momentsCount), label: "Moments" },
+      { value: String(friendsCountQuery.data ?? 0), label: "Friends" },
     ],
     [planCount, momentsCount, friendsCountQuery.data]
   );
@@ -233,9 +233,9 @@ export default function MeScreen() {
     () =>
       timelinePlans.map((p) => ({
         id: p.id,
-        title: p.title || "✨ بلان",
+        title: p.title || "✨ Plan",
         activity: p.activity_type ?? "",
-        people: `${p.memberCount} ${p.memberCount === 1 ? "شخص" : "أشخاص"}`,
+        people: `${p.memberCount} ${p.memberCount === 1 ? "person" : "people"}`,
         date: formatDate(p.created_at),
         tiles: tilesFor(p.id),
         mosaicUrl: p.mosaic_url,
