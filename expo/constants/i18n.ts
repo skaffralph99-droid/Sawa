@@ -265,6 +265,49 @@ const EN: Record<string, string> = {
   "دعوة أصحاب": "Invite friends",
   "امسح الكود": "Scan the code",
 
+  // Phone screen — returning user flow
+  "أهلاً وسهلاً! 👋": "Welcome back! 👋",
+  "رح نبعتلك رمز لتدخل على حسابك": "We'll send you a code to log in",
+  "رقم جديد — رح نسجّلك على Sawa ✨": "New number — we'll create your account ✨",
+  "أرسل رمز الدخول": "Send login code",
+
+  // Friends screen
+  "دور على اسم صاحبك": "Search by name",
+  "طلبات صداقة": "Friend requests",
+  "بدو يكون صاحبك": "Wants to be your friend",
+  "بانتظار": "Pending",
+  "قبول": "Accept",
+  "رفض": "Decline",
+  "بانتظار الرد": "Waiting for reply",
+  "نتائج البحث": "Search results",
+  "ما لقينا حدا بهالاسم": "Nobody found with that name",
+  "طلبات مرسلة": "Sent requests",
+  "صاحبك على Sawa": "Your friend on Sawa",
+  "دور باسم صاحبك فوق أو ابعتلو دعوة": "Search above or send an invite",
+  "انضم لـ Sawa وعيش اللحظة مع أصحابك — https://sawa.app": "Join Sawa and live the moment with your friends — https://sawa.app",
+  "سجّل الدخول لتضيف أصحاب حقيقيين": "Sign in to add real friends",
+  "تسجيل الدخول": "Sign in",
+  "صاحبك": "Friend",
+  "بدون اسم": "No name",
+
+  // Me screen
+  "بلان": "Plans",
+  "لحظة": "Moments",
+  "صاحب": "Friends",
+  "ذكرياتك": "Your memories",
+  "ما في ذكريات بعد": "No memories yet",
+  "عمل بلان وصور لحظاتك": "Make a plan and capture your moments",
+  "أنا": "Me",
+
+  // Home screen
+  "عامل البلان": "Plan host",
+  "Plan host": "Plan host",
+  "صاحب البلان": "Plan host",
+  "عملت البلان": "Hosted",
+  "شخص": "person",
+  "أشخاص": "people",
+
+
   // Home bottom nav
   "الرئيسية": "Home",
   "اكتشف": "Discover",
