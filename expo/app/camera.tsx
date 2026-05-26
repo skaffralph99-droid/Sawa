@@ -143,7 +143,7 @@ export default function CameraScreen() {
       if (cameraRef.current && Platform.OS !== "web") {
         const photo = await cameraRef.current.takePictureAsync({ quality: 0.7, skipProcessing: true });
         if (photo?.uri && planId && user?.id) {
-          const { ok, error } = await submitPlanRealPhoto(planId, user.id, photo.uri);
+          const { ok, error } = await submitPlanRealPhoto(planId, user.id, photo.uri, facing === "front");
           if (!ok) console.log("[camera] submit error", error);
         }
       }
