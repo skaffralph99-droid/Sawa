@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { Plus, X, Search, Users, MapPin } from "lucide-react-native";
+import { Plus, X, Search, Users, MapPin, ChevronLeft } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -157,6 +157,16 @@ export default function CirclesScreen() {
       <SafeAreaView style={styles.safe} edges={["top"]}>
         {/* Header */}
         <View style={styles.header}>
+          <Pressable
+            onPress={() => { haptic(); try { router.back(); } catch { router.replace("/home"); } }}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            style={styles.backBtn}
+            testID="circles-back"
+          >
+            <ChevronLeft size={22} color={Colors.text} strokeWidth={2.4} />
+          </Pressable>
           <Text style={styles.headerTitle}>Circles</Text>
           <Pressable onPress={() => { haptic(); setShowCreate(true); }} style={styles.addBtn}>
             <LinearGradient

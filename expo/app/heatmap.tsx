@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { Flame, RefreshCw } from "lucide-react-native";
+import { Flame, RefreshCw, ChevronLeft } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Animated,
@@ -139,7 +139,17 @@ export default function HeatmapScreen() {
       <SafeAreaView style={styles.safe} edges={["top"]}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
+          <Pressable
+            onPress={() => { haptic(); try { router.back(); } catch { router.replace("/home"); } }}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            style={styles.backBtn}
+            testID="heatmap-back"
+          >
+            <ChevronLeft size={22} color={Colors.text} strokeWidth={2.4} />
+          </Pressable>
+          <View style={{ flex: 1, marginLeft: 8 }}>
             <Text style={styles.headerTitle}>Live Energy 🔥</Text>
             <Text style={styles.headerSub}>Where is everyone right now</Text>
           </View>

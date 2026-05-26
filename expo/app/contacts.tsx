@@ -2,7 +2,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as Contacts from "expo-contacts";
-import { BookUser, Lock } from "lucide-react-native";
+import { BookUser, Lock, ChevronLeft } from "lucide-react-native";
 import React, { useRef, useState } from "react";
 import { useT } from "@/constants/i18n";
 import {
@@ -83,6 +83,21 @@ export default function ContactsPermissionScreen() {
       <View pointerEvents="none" style={styles.glowCenter} />
 
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+        <View style={styles.backRow}>
+          <Pressable
+            onPress={() => {
+              if (Platform.OS !== "web") Haptics.selectionAsync().catch(() => {});
+              try { router.back(); } catch { router.replace("/home"); }
+            }}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t("Back")}
+            style={styles.backBtn}
+            testID="contacts-back"
+          >
+            <ChevronLeft size={24} color={COLORS.textPrimary} strokeWidth={2.5} />
+          </Pressable>
+        </View>
         <View style={styles.content}>
           <View style={styles.flex} />
 
@@ -194,6 +209,18 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     paddingHorizontal: 24,
+  },
+  backRow: {
+    height: 44,
+    justifyContent: "center",
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.card,
   },
   content: {
     flex: 1,

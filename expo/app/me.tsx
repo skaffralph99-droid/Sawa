@@ -252,7 +252,19 @@ export default function MeScreen() {
       <SafeAreaView style={styles.safe} edges={["top"]}>
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.headerSide} />
+          <Pressable
+            style={styles.headerSide}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t("رجوع")}
+            testID="me-back"
+            onPress={() => {
+              if (Platform.OS !== "web") Haptics.selectionAsync().catch(() => {});
+              try { router.back(); } catch { router.replace("/home"); }
+            }}
+          >
+            <ChevronLeft size={22} color={Colors.textMuted} strokeWidth={2.2} />
+          </Pressable>
           <Text style={styles.headerTitle}>{t("أنا")}</Text>
           <Pressable
             style={styles.headerSide}

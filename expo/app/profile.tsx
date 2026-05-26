@@ -2,7 +2,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { Camera, Plus } from "lucide-react-native";
+import { Camera, Plus, ChevronLeft } from "lucide-react-native";
 import React, { useRef, useState } from "react";
 import { useT } from "@/constants/i18n";
 import { useAuth } from "@/constants/auth";
@@ -132,6 +132,21 @@ export default function ProfileScreen() {
       <View pointerEvents="none" style={styles.glowPurple} />
 
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+        <View style={styles.backRow}>
+          <Pressable
+            onPress={() => {
+              if (Platform.OS !== "web") Haptics.selectionAsync().catch(() => {});
+              try { router.back(); } catch { router.replace("/phone"); }
+            }}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t("رجوع")}
+            style={styles.backBtn}
+            testID="profile-back"
+          >
+            <ChevronLeft size={24} color={COLORS.textPrimary} strokeWidth={2.5} />
+          </Pressable>
+        </View>
         {/* Progress (step 2 of 2) */}
         <View style={styles.progressRow}>
           <View style={styles.progressSegment}>
@@ -331,6 +346,18 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     paddingHorizontal: 24,
+  },
+  backRow: {
+    height: 44,
+    justifyContent: "center",
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.card,
   },
   progressRow: {
     flexDirection: "row",

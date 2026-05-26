@@ -2,7 +2,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as Notifications from "expo-notifications";
-import { Bell, Zap, Users, Camera } from "lucide-react-native";
+import { Bell, Zap, Users, Camera, ChevronLeft } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import { useT } from "@/constants/i18n";
 import {
@@ -118,6 +118,21 @@ export default function NotificationsPermissionScreen() {
       <View pointerEvents="none" style={styles.glowCenter} />
 
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+        <View style={styles.backRow}>
+          <Pressable
+            onPress={() => {
+              if (Platform.OS !== "web") Haptics.selectionAsync().catch(() => {});
+              goBack();
+            }}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t("Back")}
+            style={styles.backBtn}
+            testID="notifications-back"
+          >
+            <ChevronLeft size={24} color={COLORS.textPrimary} strokeWidth={2.5} />
+          </Pressable>
+        </View>
         <View style={styles.content}>
           <View style={styles.flex} />
 
@@ -245,6 +260,18 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     paddingHorizontal: 24,
+  },
+  backRow: {
+    height: 44,
+    justifyContent: "center",
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.card,
   },
   content: {
     flex: 1,
