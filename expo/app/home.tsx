@@ -383,7 +383,7 @@ function localPlanToPlan(lp: LocalPlan): Plan {
     kindTint: tint,
     creator: {
       name: lp.creatorName,
-      role: "عامل البلان",
+      role: "Plan host",
       tint,
       initial: lp.creatorInitial,
     },
@@ -398,14 +398,14 @@ function localPlanToPlan(lp: LocalPlan): Plan {
 }
 
 function remoteToPlan(row: RemotePlanRow, ownerName: string, memberCount: number): Plan {
-  const name = ownerName?.trim() || "شخص";
+  const name = ownerName?.trim() || "Someone";
   const initial = name.charAt(0) || "\u0634";
   const tint = MEMBER_PALETTES[Math.abs(hashString(row.id)) % MEMBER_PALETTES.length] as readonly [string, string];
   return {
     id: row.id,
     emoji: extractEmoji(row.title) || "\u2728",
     kindTint: tint,
-    creator: { name, role: "\u0639\u0627\u0645\u0644 \u0627\u0644\u0628\u0644\u0627\u0646", tint, initial },
+    creator: { name, role: "Plan host", tint, initial },
     title: stripLeadingEmoji(row.title),
     location: row.location ?? "",
     time: timeAgo(row.created_at),
@@ -434,12 +434,12 @@ function stripLeadingEmoji(s: string): string {
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "\u0627\u0644\u0622\u0646";
-  if (mins < 60) return `\u0645\u0646\u0630 ${mins} \u062f\u0642\u064a\u0642\u0629`;
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `\u0645\u0646\u0630 ${hrs} \u0633\u0627\u0639\u0629`;
+  if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
-  return `\u0645\u0646\u0630 ${days} \u064a\u0648\u0645`;
+  return `${days}d ago`;
 }
 
 type RemoteMomentRow = {
@@ -465,9 +465,9 @@ function remoteMomentToMoment(row: RemoteMomentRow): Moment {
 
 export default function HomeScreen() {
   const t = useT();
-  const { mode, profile } = useAuth();
+  const { mode, profile, user } = useAuth();
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["id"]>("plans");
-  const [activeFilter, setActiveFilter] = useState<string>("الكل");
+  const [activeFilter, setActiveFilter] = useState<string>("All");
 
   const plansQuery = useQuery<Plan[]>({
     queryKey: ["plans"],
