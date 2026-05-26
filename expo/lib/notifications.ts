@@ -46,11 +46,12 @@ export async function registerForPushNotifications(userId: string): Promise<{
 
   if (!hasSupabase) return { ok: true, token };
 
-  const { error } = await supabase.from("push_tokens").upsert(
-    { user_id: userId, token, updated_at: new Date().toISOString() },
-    { onConflict: "token" }
-  );
-  if (error) return { ok: false, error: error.message };
+  // Use the upsert_push_token RPC which handles the (user_id, token) unique constraint
+  const { error } = await supabase.rpc("upsert_push_token", { p_token: token });
+  if (error) {
+    console.log("[notifications] upsert_push_token error:", error.message);
+    return { ok: false, error: error.message };
+  }
 
   return { ok: true, token };
 }
@@ -76,8 +77,8 @@ export function setupNotificationHandlers(
 export async function sendLocalPlanRealNotification(planId: string) {
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: "📸 Time for PlanReal!",
-      body: "You have 2 minutes to capture the moment!",
+      title: "📸 Sawa fires!",
+      body: "2 minutes — capture the moment!",
       data: { type: "planreal", planId },
       sound: true,
     },
