@@ -26,7 +26,6 @@ import { useAuth } from "@/constants/auth";
 import { useLocalPlans } from "@/constants/localPlans";
 import { supabase, hasSupabase } from "@/lib/supabase";
 import { createPlan } from "@/lib/plans";
-import { schedulePlanReal } from "@/lib/planreal";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 type ActivityId = "food" | "sport" | "night" | "beach" | "event" | "other";
@@ -212,10 +211,7 @@ export default function CreatePlanScreen() {
         if (memErr) console.log("[create] plan_members error", memErr.message);
       }
 
-      // Schedule the random PlanReal moment within the plan window
-      const sched = await schedulePlanReal(planId, startsAt, endsAt);
-      if (!sched.ok) console.log("[create] schedulePlanReal error", sched.error);
-
+      // planreal_scheduled_at is set automatically by create_my_plan RPC
       await queryClient.invalidateQueries({ queryKey: ["plans"] });
 
       if (Platform.OS !== "web") {
