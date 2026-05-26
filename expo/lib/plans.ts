@@ -64,12 +64,11 @@ export async function fetchPlanWithMembers(planId: string): Promise<{
 }
 
 export async function joinPlan(planId: string, userId: string): Promise<{ ok: boolean; error?: string }> {
-  const { error } = await supabase.from("plan_members").upsert(
-    { plan_id: planId, user_id: userId, join_type: "joined", status: "joined" },
-    { onConflict: "plan_id,user_id" }
-  );
+  // Use the RPC which handles privacy checks, member caps, and conflict safely
+  const { data, error } = await supabase.rpc("join_plan", { p_plan_id: planId });
   if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  const result = data as { ok: boolean; error?: string };
+  return result?.ok ? { ok: true } : { ok: false, error: result?.error };
 }
 
 export async function leavePlan(planId: string, userId: string): Promise<{ ok: boolean; error?: string }> {
@@ -94,27 +93,32 @@ export async function createPlan(params: {
   startsAt?: Date;
   endsAt?: Date;
   circleId?: string;
-}): Promise<{ ok: boolean; planId?: string; error?: string }> {
-  // Try RPC first — bypasses RLS regardless of auth type
+}): Promise<{ ok: boolean; planId?: string; planrealScheduledAt?: string; error?: string }> {
+  // RPC handles planreal_scheduled_at automatically — always try this first
   const { data: rpcData, error: rpcError } = await supabase.rpc("create_my_plan", {
     p_title: params.title,
     p_location: params.location || null,
     p_activity_type: params.activityType,
     p_privacy: params.privacy,
     p_max_people: params.maxPeople,
-    p_starts_at: params.startsAt?.toISOString() ?? new Date().toISOString(),
-    p_ends_at: params.endsAt?.toISOString() ?? new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+    p_starts_at: params.startsAt?.toISOString() ?? null,
+    p_ends_at: params.endsAt?.toISOString() ?? null,
     p_circle_id: params.circleId ?? null,
   });
 
   if (!rpcError && rpcData?.ok) {
-    console.log("[plans] createPlan RPC OK, planId:", rpcData.planId);
-    return { ok: true, planId: rpcData.planId };
+    console.log("[plans] createPlan RPC OK, planId:", rpcData.planId, "scheduled:", rpcData.planreal_scheduled_at);
+    return { ok: true, planId: rpcData.planId, planrealScheduledAt: rpcData.planreal_scheduled_at };
   }
 
   console.log("[plans] createPlan RPC error:", rpcError?.message, "— trying direct insert");
 
-  // Fallback: direct insert
+  // Fallback: direct insert — compute planreal_scheduled_at here too
+  const now = new Date();
+  const startsAt = params.startsAt ?? now;
+  const randomMinutes = 30 + Math.floor(Math.random() * 60);
+  const planrealScheduledAt = new Date(startsAt.getTime() + randomMinutes * 60 * 1000);
+
   const { data, error } = await supabase
     .from("plans")
     .insert({
@@ -129,9 +133,10 @@ export async function createPlan(params: {
       starts_at: params.startsAt?.toISOString() ?? null,
       ends_at: params.endsAt?.toISOString() ?? null,
       status: "active",
-      plan_visibility: params.privacy,
+      plan_visibility: "public",
       mosaic_visibility: "public",
       circle_id: params.circleId ?? null,
+      planreal_scheduled_at: planrealScheduledAt.toISOString(),
     })
     .select("id")
     .single();
@@ -148,7 +153,7 @@ export async function createPlan(params: {
     status: "joined",
   });
 
-  return { ok: true, planId: data.id };
+  return { ok: true, planId: data.id, planrealScheduledAt: planrealScheduledAt.toISOString() };
 }
 
 export async function getUserTimeline(userId: string): Promise<{
