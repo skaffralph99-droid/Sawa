@@ -68,7 +68,7 @@ export async function submitPlanRealPhoto(
 
  const { error: updateError } = await supabase
  .from("plan_members")
- .update({ photo_url: photoUrl, submitted_at: new Date().toISOString() })
+ .update({ photo_url: photoUrl, submitted_at: new Date().toISOString(), is_selfie: isSelfie })
  .eq("plan_id", planId)
  .eq("user_id", userId);
  if (updateError) return { ok: false, error: updateError.message };
