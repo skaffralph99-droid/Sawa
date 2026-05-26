@@ -82,31 +82,21 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     []
   );
 
+  // devSignIn: tries real OTP with code 123456.
+  // Requires test phone numbers set up in Supabase Dashboard:
+  // Authentication → Phone → Test phone numbers → add number with code 123456
   const devSignIn = useCallback(
     async (phoneE164?: string): Promise<{ ok: boolean; error?: string }> => {
       if (!hasSupabase) return { ok: false, error: "supabase-not-configured" };
-
-      // Use the phone number passed in (from OTP screen) or default test number
       const phone = phoneE164 ?? "+96170000001";
-
       console.log("[auth] devSignIn — sending OTP to", phone);
 
-      // Step 1: Send OTP
       const { error: otpErr } = await supabase.auth.signInWithOtp({ phone });
       if (otpErr) {
         console.log("[auth] devSignIn OTP send error:", otpErr.message);
-        // If sending OTP fails — try anonymous as last resort
-        const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
-        if (!anonError && anonData.session) {
-          setSession(anonData.session);
-          setIsGuest(false);
-          console.log("[auth] devSignIn fallback anonymous OK, uid:", anonData.session.user.id);
-          return { ok: true };
-        }
         return { ok: false, error: otpErr.message };
       }
 
-      // Step 2: Verify with 123456
       const { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
         phone,
         token: "123456",
@@ -115,15 +105,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
       if (verifyErr || !verifyData.session) {
         console.log("[auth] devSignIn OTP verify error:", verifyErr?.message);
-        // Fallback to anonymous
-        const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
-        if (!anonError && anonData.session) {
-          setSession(anonData.session);
-          setIsGuest(false);
-          console.log("[auth] devSignIn fallback anonymous OK, uid:", anonData.session.user.id);
-          return { ok: true };
-        }
-        return { ok: false, error: verifyErr?.message ?? "verify-failed" };
+        return {
+          ok: false,
+          error:
+            "To use code 123456: go to Supabase Dashboard → Authentication → Phone → Test phone numbers, add your number with code 123456.",
+        };
       }
 
       setSession(verifyData.session);
@@ -149,11 +135,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
       if (error) {
         console.log("[auth] saveProfile RPC error:", error.message);
-        const row = { id: user.id, phone, name: input.name, avatar_url: input.avatarUrl };
-        const { data: d2, error: e2 } = await supabase.from("profiles").upsert(row, { onConflict: "id" }).select().single();
-        if (e2) { console.log("[auth] saveProfile fallback error:", e2.message); return { ok: false, error: e2.message }; }
-        setProfile(d2 as ProfileRow);
-        return { ok: true };
+        return { ok: false, error: error.message };
       }
 
       const result = data as { ok: boolean; error?: string };
