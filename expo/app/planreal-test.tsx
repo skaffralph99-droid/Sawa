@@ -309,8 +309,8 @@ function SealedCard({
   const sealedOp   = useRef(new Animated.Value(1)).current;
   const photoOp    = useRef(new Animated.Value(0)).current;
   const photoScale = useRef(new Animated.Value(0.6)).current;
-  const cardScale  = useRef(new Animated.Value(0)).current;
-  const cardOp     = useRef(new Animated.Value(0)).current;
+  const cardScale  = useRef(new Animated.Value(1)).current;
+  const cardOp     = useRef(new Animated.Value(1)).current;
   const shakeX     = useRef(new Animated.Value(0)).current;
   const shakeY     = useRef(new Animated.Value(0)).current;
   const glowOp     = useRef(new Animated.Value(0)).current;
@@ -324,16 +324,17 @@ function SealedCard({
   const hasCharged  = useRef(false);
   const hasBurst    = useRef(false);
 
-  // Entry: card slides/scales in
+  // Entry: subtle scale-in stagger — cards already visible
   useEffect(() => {
-    const delay = index * 250;
+    const delay = index * 200;
+    cardScale.setValue(0.88);
+    cardOp.setValue(0);
     setTimeout(() => {
       light();
       Animated.parallel([
         Animated.spring(cardScale, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 12 }),
         Animated.timing(cardOp, { toValue: 1, duration: 300, useNativeDriver: true }),
       ]).start();
-      // Ambient glow starts
       Animated.loop(Animated.sequence([
         Animated.timing(glowOp, { toValue: 0.45, duration: 1600, useNativeDriver: true }),
         Animated.timing(glowOp, { toValue: 0.1, duration: 1600, useNativeDriver: true }),
@@ -658,7 +659,7 @@ function MosaicReveal({ photos }: { photos: string[] }) {
   const vibeEmoji = targetVibe >= 97 ? "🔥🔥🔥" : targetVibe >= 92 ? "🔥🔥" : "🔥";
 
   return (
-    <Animated.View style={{ flex: 1, backgroundColor: THEME.bg, transform: [{ translateX: screenShakeX }, { translateY: screenShakeY }] }}>
+    <View style={{ flex: 1, backgroundColor: THEME.bg }}>
       {/* Ambient particles */}
       {Array.from({ length: 14 }).map((_, i) => (
         <AmbientParticle key={i} color={i % 3 === 0 ? THEME.primary : i % 3 === 1 ? THEME.secondary : THEME.accent} startX={20 + (i * 25) % 360} delay={i * 300} />
@@ -675,11 +676,13 @@ function MosaicReveal({ photos }: { photos: string[] }) {
       {/* Full screen flash on burst */}
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: "#fff", opacity: screenFlash, zIndex: 999 }]} />
 
-      <ScrollView
+      <Animated.ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ alignItems: "center", paddingTop: 16, paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Inner wrapper gets the shake — not the whole screen */}
+        <Animated.View style={{ alignItems: "center", width: "100%", transform: [{ translateX: screenShakeX }, { translateY: screenShakeY }] }}>
         {/* Status */}
         <Animated.View style={{ alignItems: "center", marginBottom: 28, opacity: titleOp, transform: [{ translateY: titleY }] }}>
           <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: "900", letterSpacing: 4, marginBottom: 6 }}>SAWA · PLANREAL</Text>
@@ -688,7 +691,7 @@ function MosaicReveal({ photos }: { photos: string[] }) {
 
         {/* CARDS — always visible */}
         <View>
-          <View ref={mosaicRef} style={{ width: mosaicSize, height: mosaicSize, backgroundColor: THEME.bg, borderRadius: 20, overflow: "visible" }}>
+          <View ref={mosaicRef} style={{ width: mosaicSize, height: mosaicSize, backgroundColor: THEME.bg, borderRadius: 20, overflow: "hidden" }}>
             {/* TOP ROW */}
             <View style={{ flexDirection: "row", height: TILE }}>
               <SealedCard uri={photos[0]} name={NAMES[0]} role={ROLES[0]} word={WORDS[0]} size={TILE} state={cardStates[0]} onDone={() => handleCardDone(0)} index={0} />
@@ -743,8 +746,9 @@ function MosaicReveal({ photos }: { photos: string[] }) {
             <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, fontWeight: "600" }}>Try Again</Text>
           </Pressable>
         </Animated.View>
-      </ScrollView>
-    </Animated.View>
+        </Animated.View>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
