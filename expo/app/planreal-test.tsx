@@ -1,14 +1,14 @@
 /**
- * SAWA — PlanReal Cinematic Reveal
- * Insane. Every card is its own event.
- * Full-screen shake. White flash. Particles everywhere.
- * This is the moment people screen-record.
+ * SAWA — PlanReal Polaroid Reveal
+ * 4 polaroids drop from above, one by one.
+ * Each develops like a real polaroid.
+ * Dark film aesthetic. Instagram-ready.
  */
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Stack } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
-import { X, SwitchCamera, Check, ChevronLeft, Share2, Download } from "lucide-react-native";
+import { X, SwitchCamera, Check, Share2, Download, ChevronLeft } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated, Easing, Image, Platform,
@@ -21,171 +21,106 @@ import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import Colors from "@/constants/colors";
 
-// ─── CONSTANTS ───────────────────────────────────────────────
-const NAMES  = ["You", "Ahmad", "Sara", "Khalil"];
-const ROLES  = ["🔥 Life of the Party", "⏰ The Late One", "😂 The Comedian", "👀 The Observer"];
-const WORDS  = ["UNREAL", "Finally", "Chaotic", "Love"];
+const NAMES     = ["You", "Ahmad", "Sara", "Khalil"];
 const SHOT_COUNT = 4;
 type Phase = "intro" | "capture" | "reveal";
 
-const THEME = {
-  primary:   "#FF6B35",
-  secondary: "#FF3CAC",
-  accent:    "#BF5FFF",
-  bg:        "#070510",
-};
+// Each polaroid has a slight rotation and offset for that "scattered on table" feel
+const POLAROID_CONFIG = [
+  { rotate: -4.5, dx: -6,  dy: 0   },  // top-left — slightly tilted left
+  { rotate:  3.2, dx:  6,  dy: 4   },  // top-right — slightly tilted right
+  { rotate:  5.8, dx: -8,  dy: 0   },  // bottom-left — more tilt
+  { rotate: -2.8, dx:  4,  dy: -4  },  // bottom-right — slight tilt
+];
 
-// ─── HAPTICS ─────────────────────────────────────────────────
-function light()  { if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); }
-function medium() { if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); }
-function heavy()  { if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}); }
-function success(){ if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); }
-function triple() {
-  heavy();
-  setTimeout(heavy, 80);
-  setTimeout(heavy, 160);
+function buzz(s = Haptics.ImpactFeedbackStyle.Medium) {
+  if (Platform.OS !== "web") Haptics.impactAsync(s).catch(() => {});
+}
+function success() {
+  if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 }
 
-// ─── FLOATING PARTICLE ───────────────────────────────────────
-function AmbientParticle({ color, startX, delay }: { color: string; startX: number; delay: number }) {
-  const y = useRef(new Animated.Value(800)).current;
-  const x = useRef(new Animated.Value(startX)).current;
-  const op = useRef(new Animated.Value(0)).current;
-  const size = 1.5 + Math.random() * 3;
-
-  useEffect(() => {
-    const run = () => {
-      y.setValue(800);
-      x.setValue(startX + (Math.random() - 0.5) * 60);
-      op.setValue(0);
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(op, { toValue: 0.7, duration: 500, delay, useNativeDriver: true }),
-          Animated.timing(op, { toValue: 0, duration: 500, delay: 3500, useNativeDriver: true }),
-        ]),
-        Animated.timing(y, { toValue: -100, duration: 5000, delay, useNativeDriver: true, easing: Easing.linear }),
-        Animated.timing(x, { toValue: startX + (Math.random() - 0.5) * 120, duration: 5000, delay, useNativeDriver: true, easing: Easing.inOut(Easing.sin) }),
-      ]).start(run);
-    };
-    run();
-  }, []);
-
+// ─── GRAIN TEXTURE OVERLAY ───────────────────────────────────
+// Simulated film grain using small dots
+function GrainOverlay() {
   return (
-    <Animated.View pointerEvents="none" style={{
-      position: "absolute", width: size, height: size, borderRadius: size / 2,
-      backgroundColor: color, opacity: op,
-      transform: [{ translateX: x }, { translateY: y }],
-    }} />
-  );
-}
-
-// Burst particle — flies outward from a point
-function BurstParticle({ angle, speed, color, visible }: { angle: number; speed: number; color: string; visible: boolean }) {
-  const dist = useRef(new Animated.Value(0)).current;
-  const op   = useRef(new Animated.Value(0)).current;
-  const size = 3 + Math.random() * 5;
-  const rad  = (angle * Math.PI) / 180;
-
-  useEffect(() => {
-    if (!visible) return;
-    dist.setValue(0); op.setValue(1);
-    Animated.parallel([
-      Animated.timing(dist, { toValue: speed, duration: 600, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
-      Animated.sequence([
-        Animated.timing(op, { toValue: 1, duration: 50, useNativeDriver: true }),
-        Animated.timing(op, { toValue: 0, duration: 550, delay: 50, useNativeDriver: true }),
-      ]),
-    ]).start();
-  }, [visible]);
-
-  const tx = dist.interpolate({ inputRange: [0, speed], outputRange: [0, Math.cos(rad) * speed] });
-  const ty = dist.interpolate({ inputRange: [0, speed], outputRange: [0, Math.sin(rad) * speed] });
-
-  return (
-    <Animated.View pointerEvents="none" style={{
-      position: "absolute", width: size, height: size, borderRadius: size / 2,
-      backgroundColor: color, opacity: op,
-      transform: [{ translateX: tx }, { translateY: ty }],
-    }} />
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {Array.from({ length: 40 }).map((_, i) => (
+        <View key={i} style={{
+          position: "absolute",
+          width: 1.5, height: 1.5,
+          borderRadius: 1,
+          backgroundColor: "rgba(255,255,255,0.04)",
+          top: `${(i * 7.3) % 100}%`,
+          left: `${(i * 13.7) % 100}%`,
+        }} />
+      ))}
+    </View>
   );
 }
 
 // ─── INTRO ───────────────────────────────────────────────────
 function IntroScreen({ onStart }: { onStart: () => void }) {
-  const logoScale = useRef(new Animated.Value(0.7)).current;
-  const logoOp    = useRef(new Animated.Value(0)).current;
-  const glowOp    = useRef(new Animated.Value(0)).current;
-  const contentOp = useRef(new Animated.Value(0)).current;
-  const btnScale  = useRef(new Animated.Value(0.9)).current;
+  const scale = useRef(new Animated.Value(0.92)).current;
+  const op    = useRef(new Animated.Value(0)).current;
+  const btnY  = useRef(new Animated.Value(20)).current;
+  const btnOp = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.sequence([
       Animated.parallel([
-        Animated.spring(logoScale, { toValue: 1, useNativeDriver: true, speed: 8, bounciness: 14 }),
-        Animated.timing(logoOp, { toValue: 1, duration: 500, useNativeDriver: true }),
-        Animated.timing(glowOp, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 10, bounciness: 8 }),
+        Animated.timing(op, { toValue: 1, duration: 600, useNativeDriver: true }),
       ]),
-      Animated.timing(contentOp, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.spring(btnScale, { toValue: 1, useNativeDriver: true, speed: 12, bounciness: 10 }),
+      Animated.parallel([
+        Animated.spring(btnY, { toValue: 0, useNativeDriver: true, speed: 14, bounciness: 10 }),
+        Animated.timing(btnOp, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ]),
     ]).start();
-
-    Animated.loop(Animated.sequence([
-      Animated.timing(glowOp, { toValue: 0.4, duration: 2000, useNativeDriver: true }),
-      Animated.timing(glowOp, { toValue: 1, duration: 2000, useNativeDriver: true }),
-    ])).start();
   }, []);
 
   return (
-    <View style={{ flex: 1, backgroundColor: THEME.bg }}>
-      {/* Ambient particles */}
-      {Array.from({ length: 16 }).map((_, i) => (
-        <AmbientParticle key={i} color={i % 3 === 0 ? THEME.primary : i % 3 === 1 ? THEME.secondary : THEME.accent} startX={30 + (i * 23) % 340} delay={i * 220} />
-      ))}
-
-      {/* Big radial glow */}
-      <Animated.View pointerEvents="none" style={{
-        position: "absolute", top: "10%", left: "-30%", right: "-30%", height: 500,
-        borderRadius: 250, opacity: glowOp,
-      }}>
-        <LinearGradient colors={[THEME.primary + "30", THEME.secondary + "20", "transparent"]} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={{ flex: 1, borderRadius: 250 }} />
-      </Animated.View>
+    <View style={{ flex: 1, backgroundColor: "#0D0B1E" }}>
+      <GrainOverlay />
+      {/* Vignette */}
+      <LinearGradient colors={["rgba(0,0,0,0.6)", "transparent", "transparent", "rgba(0,0,0,0.6)"]} locations={[0, 0.3, 0.7, 1]} style={StyleSheet.absoluteFill} />
 
       <View style={{ flex: 1, alignItems: "center", justifyContent: "space-between", padding: 36 }}>
-        <View style={{ alignItems: "center", paddingTop: 50 }}>
-          <Animated.Text style={{ fontSize: 80, transform: [{ scale: logoScale }], opacity: logoOp }}>
-            📦
-          </Animated.Text>
-          <Animated.View style={{ alignItems: "center", opacity: logoOp }}>
-            <Text style={{ color: "#fff", fontSize: 36, fontWeight: "900", letterSpacing: -1.5, marginTop: 16 }}>
-              PlanReal
-            </Text>
-            <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, letterSpacing: 4, fontWeight: "700", marginTop: 6 }}>
-              MEMORY CARDS
-            </Text>
-          </Animated.View>
-        </View>
-
-        <Animated.View style={{ width: "100%", gap: 16, opacity: contentOp }}>
-          {[
-            ["📸", "Take 4 real photos"],
-            ["📦", "4 sealed memory cards"],
-            ["💥", "Each card BURSTS open"],
-            ["✨", "Mosaic locked forever"],
-          ].map(([icon, label], i) => (
-            <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
-              <LinearGradient colors={[THEME.primary + "30", THEME.secondary + "20"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
-                <Text style={{ fontSize: 20 }}>{icon}</Text>
-              </LinearGradient>
-              <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 15, fontWeight: "600" }}>{label}</Text>
+        <Animated.View style={{ alignItems: "center", paddingTop: 50, opacity, transform: [{ scale }] }}>
+          {/* Mini polaroid preview */}
+          <View style={{ transform: [{ rotate: "-5deg" }], marginBottom: -20, zIndex: 1 }}>
+            <View style={{ width: 100, height: 120, backgroundColor: "#F5F0E8", borderRadius: 2, padding: 6, paddingBottom: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 12 }}>
+              <View style={{ flex: 1, backgroundColor: "#2A2540", borderRadius: 1, overflow: "hidden" }}>
+                <LinearGradient colors={["#FF6B35", "#FF3CAC"]} style={{ flex: 1 }} />
+              </View>
+              <Text style={{ color: "#888", fontSize: 8, fontWeight: "600", textAlign: "center", marginTop: 4, fontStyle: "italic" }}>tonight</Text>
             </View>
-          ))}
+          </View>
+          <View style={{ transform: [{ rotate: "4deg" }] }}>
+            <View style={{ width: 100, height: 120, backgroundColor: "#F5F0E8", borderRadius: 2, padding: 6, paddingBottom: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 12 }}>
+              <View style={{ flex: 1, backgroundColor: "#1E1830", borderRadius: 1, overflow: "hidden" }}>
+                <LinearGradient colors={["#BF5FFF", "#FF3CAC"]} style={{ flex: 1 }} />
+              </View>
+              <Text style={{ color: "#888", fontSize: 8, fontWeight: "600", textAlign: "center", marginTop: 4, fontStyle: "italic" }}>memories</Text>
+            </View>
+          </View>
+
+          <Text style={{ color: "#fff", fontSize: 34, fontWeight: "900", letterSpacing: -1.5, marginTop: 32, textAlign: "center" }}>
+            PlanReal
+          </Text>
+          <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, letterSpacing: 4, fontWeight: "700", marginTop: 6 }}>
+            MEMORY POLAROIDS
+          </Text>
+          <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, textAlign: "center", lineHeight: 22, marginTop: 16 }}>
+            {"4 photos.\nDrop like polaroids.\nDevelop one by one."}
+          </Text>
         </Animated.View>
 
-        <Animated.View style={{ width: "100%", transform: [{ scale: btnScale }] }}>
-          <Pressable onPress={() => { triple(); onStart(); }} style={{ height: 62, borderRadius: 31, overflow: "hidden" }}>
-            <LinearGradient colors={[THEME.primary, THEME.secondary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <Animated.View style={{ width: "100%", opacity: btnOp, transform: [{ translateY: btnY }] }}>
+          <Pressable onPress={() => { buzz(Haptics.ImpactFeedbackStyle.Heavy); onStart(); }} style={{ height: 62, borderRadius: 31, overflow: "hidden" }}>
+            <LinearGradient colors={["#FF6B35", "#FF3CAC"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
               <Text style={{ color: "#fff", fontSize: 18, fontWeight: "900", letterSpacing: 0.5 }}>
-                Open Pack ⚡
+                📷  Take 4 Photos
               </Text>
             </LinearGradient>
           </Pressable>
@@ -209,11 +144,11 @@ function CaptureScreen({ photos, onCapture }: { photos: string[]; onCapture: (ur
   const doCapture = useCallback(async () => {
     if (capturing || !cameraRef.current) return;
     setCapturing(true);
-    heavy();
+    buzz(Haptics.ImpactFeedbackStyle.Heavy);
     flashAnim.setValue(1);
     Animated.timing(flashAnim, { toValue: 0, duration: 350, useNativeDriver: true }).start();
     Animated.sequence([
-      Animated.timing(btnScale, { toValue: 0.84, duration: 65, useNativeDriver: true }),
+      Animated.timing(btnScale, { toValue: 0.86, duration: 70, useNativeDriver: true }),
       Animated.spring(btnScale, { toValue: 1, useNativeDriver: true, speed: 26, bounciness: 18 }),
     ]).start();
     try {
@@ -225,10 +160,10 @@ function CaptureScreen({ photos, onCapture }: { photos: string[]; onCapture: (ur
 
   if (!permission) return <View style={{ flex: 1, backgroundColor: "#000" }} />;
   if (!permission.granted) return (
-    <View style={{ flex: 1, backgroundColor: THEME.bg, alignItems: "center", justifyContent: "center", gap: 20 }}>
+    <View style={{ flex: 1, backgroundColor: "#0D0B1E", alignItems: "center", justifyContent: "center", gap: 20 }}>
       <Text style={{ color: "#fff", fontSize: 16 }}>Camera needed</Text>
       <Pressable onPress={requestPermission} style={{ height: 52, borderRadius: 26, overflow: "hidden" }}>
-        <LinearGradient colors={[THEME.primary, THEME.secondary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, paddingHorizontal: 28, alignItems: "center", justifyContent: "center" }}>
+        <LinearGradient colors={["#FF6B35", "#FF3CAC"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, paddingHorizontal: 28, alignItems: "center", justifyContent: "center" }}>
           <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>Allow Camera</Text>
         </LinearGradient>
       </Pressable>
@@ -239,52 +174,52 @@ function CaptureScreen({ photos, onCapture }: { photos: string[]; onCapture: (ur
     <View style={{ flex: 1, backgroundColor: "#000" }}>
       <CameraView style={StyleSheet.absoluteFill} ref={cameraRef} facing={facing} />
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: "#fff", opacity: flashAnim }]} />
-      <LinearGradient colors={["rgba(7,5,16,0.94)", "transparent"]} style={{ position: "absolute", top: 0, left: 0, right: 0, height: 200 }} />
+      <LinearGradient colors={["rgba(13,11,30,0.94)", "transparent"]} style={{ position: "absolute", top: 0, left: 0, right: 0, height: 200 }} />
 
       <SafeAreaView edges={["top"]} style={{ position: "absolute", top: 0, left: 0, right: 0, alignItems: "center", paddingTop: 10 }}>
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 10 }}>
           {Array.from({ length: SHOT_COUNT }).map((_, i) => (
             <View key={i} style={{
               width: 36, height: 36, borderRadius: 18,
-              backgroundColor: i < photos.length ? "#3DDC97" : "rgba(255,255,255,0.05)",
+              backgroundColor: i < photos.length ? "#3DDC97" : "rgba(255,255,255,0.06)",
               borderWidth: i === shotIndex ? 2.5 : 1,
-              borderColor: i < photos.length ? "#3DDC97" : i === shotIndex ? THEME.primary : "rgba(255,255,255,0.12)",
+              borderColor: i < photos.length ? "#3DDC97" : i === shotIndex ? "#FF6B35" : "rgba(255,255,255,0.12)",
               alignItems: "center", justifyContent: "center",
             }}>
               {i < photos.length
                 ? <Check size={14} color="#fff" strokeWidth={3} />
-                : <Text style={{ color: i === shotIndex ? THEME.primary : "rgba(255,255,255,0.25)", fontSize: 11, fontWeight: "900" }}>{i + 1}</Text>}
+                : <Text style={{ color: i === shotIndex ? "#FF6B35" : "rgba(255,255,255,0.25)", fontSize: 11, fontWeight: "900" }}>{i + 1}</Text>}
             </View>
           ))}
         </View>
         <Text style={{ color: "#fff", fontSize: 17, fontWeight: "900" }}>
-          Card {shotIndex + 1} — <Text style={{ color: THEME.primary }}>{NAMES[shotIndex]}</Text>
+          Polaroid {shotIndex + 1} — <Text style={{ color: "#FF6B35" }}>{NAMES[shotIndex]}</Text>
         </Text>
         <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 3 }}>
-          {isLast ? "Last card" : `${SHOT_COUNT - shotIndex - 1} cards left`}
+          {isLast ? "Last polaroid" : `${SHOT_COUNT - shotIndex - 1} left`}
         </Text>
       </SafeAreaView>
 
       {photos.length > 0 && (
-        <View style={{ position: "absolute", top: 148, left: 20, flexDirection: "row", gap: 8 }}>
+        <View style={{ position: "absolute", top: 148, left: 20, flexDirection: "row", gap: 6 }}>
           {photos.map((uri, i) => (
-            <View key={i} style={{ width: 52, height: 52, borderRadius: 10, overflow: "hidden", borderWidth: 2, borderColor: "#3DDC97" }}>
-              <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            <View key={i} style={{ width: 48, height: 58, backgroundColor: "#F5F0E8", padding: 3, paddingBottom: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 8 }}>
+              <Image source={{ uri }} style={{ flex: 1 }} resizeMode="cover" />
             </View>
           ))}
         </View>
       )}
 
-      <LinearGradient colors={["transparent", "rgba(7,5,16,0.97)"]} style={{ position: "absolute", bottom: 0, left: 0, right: 0, paddingTop: 80 }}>
+      <LinearGradient colors={["transparent", "rgba(13,11,30,0.97)"]} style={{ position: "absolute", bottom: 0, left: 0, right: 0, paddingTop: 80 }}>
         <SafeAreaView edges={["bottom"]} style={{ alignItems: "center", paddingBottom: 30 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", paddingHorizontal: 56, marginBottom: 16 }}>
-            <Pressable onPress={() => { light(); setFacing((f) => f === "back" ? "front" : "back"); }} style={{ width: 52, height: 52, alignItems: "center", justifyContent: "center" }}>
+            <Pressable onPress={() => { buzz(Haptics.ImpactFeedbackStyle.Light); setFacing((f) => f === "back" ? "front" : "back"); }} style={{ width: 52, height: 52, alignItems: "center", justifyContent: "center" }}>
               <SwitchCamera size={28} color="rgba(255,255,255,0.7)" strokeWidth={2} />
             </Pressable>
             <Animated.View style={{ transform: [{ scale: btnScale }] }}>
               <Pressable onPress={doCapture} disabled={capturing} style={{ width: 94, height: 94, borderRadius: 47, borderWidth: 3.5, borderColor: "rgba(255,255,255,0.45)", overflow: "hidden" }}>
-                <LinearGradient colors={[THEME.primary, THEME.secondary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ fontSize: 38 }}>{isLast ? "⚡" : "📸"}</Text>
+                <LinearGradient colors={["#FF6B35", "#FF3CAC"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 38 }}>{isLast ? "⚡" : "📷"}</Text>
                 </LinearGradient>
               </Pressable>
             </Animated.View>
@@ -296,341 +231,203 @@ function CaptureScreen({ photos, onCapture }: { photos: string[]; onCapture: (ur
   );
 }
 
-// ─── SINGLE SEALED CARD ──────────────────────────────────────
-function SealedCard({
-  uri, name, role, word, size, state, onDone, index,
+// ─── SINGLE POLAROID ─────────────────────────────────────────
+function Polaroid({
+  uri, name, size, config, shouldDrop, onLanded,
 }: {
-  uri: string; name: string; role: string; word: string;
+  uri: string; name: string;
   size: number;
-  state: "sealed" | "charging" | "bursting" | "revealed";
-  onDone: () => void;
-  index: number;
+  config: { rotate: number; dx: number; dy: number };
+  shouldDrop: boolean; onLanded: () => void;
 }) {
-  const sealedOp   = useRef(new Animated.Value(1)).current;
-  const photoOp    = useRef(new Animated.Value(0)).current;
-  const photoScale = useRef(new Animated.Value(0.6)).current;
-  const cardScale  = useRef(new Animated.Value(1)).current;
-  const cardOp     = useRef(new Animated.Value(1)).current;
-  const shakeX     = useRef(new Animated.Value(0)).current;
-  const shakeY     = useRef(new Animated.Value(0)).current;
-  const glowOp     = useRef(new Animated.Value(0)).current;
-  const glowScale  = useRef(new Animated.Value(1)).current;
-  const flashOp    = useRef(new Animated.Value(0)).current;
-  const nameY      = useRef(new Animated.Value(16)).current;
-  const nameOp     = useRef(new Animated.Value(0)).current;
-  const roleOp     = useRef(new Animated.Value(0)).current;
-  const wordOp     = useRef(new Animated.Value(0)).current;
-  const [showBurst, setShowBurst] = useState(false);
-  const hasCharged  = useRef(false);
-  const hasBurst    = useRef(false);
+  const BORDER  = 10;
+  const BOTTOM  = 32;
+  const dropY   = useRef(new Animated.Value(-400)).current;
+  const dropOp  = useRef(new Animated.Value(0)).current;
+  const developOp = useRef(new Animated.Value(0)).current;  // 0 = white, 1 = photo
+  const bounceR = useRef(new Animated.Value(0)).current;   // small rotation bounce on land
+  const hasDropped = useRef(false);
 
-  // Entry: subtle scale-in stagger — cards already visible
-  useEffect(() => {
-    const delay = index * 200;
-    cardScale.setValue(0.88);
-    cardOp.setValue(0);
-    setTimeout(() => {
-      light();
-      Animated.parallel([
-        Animated.spring(cardScale, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 12 }),
-        Animated.timing(cardOp, { toValue: 1, duration: 300, useNativeDriver: true }),
-      ]).start();
-      Animated.loop(Animated.sequence([
-        Animated.timing(glowOp, { toValue: 0.45, duration: 1600, useNativeDriver: true }),
-        Animated.timing(glowOp, { toValue: 0.1, duration: 1600, useNativeDriver: true }),
-      ])).start();
-    }, delay);
-  }, []);
-
-  // CHARGING phase: glow intensifies rapidly
-  useEffect(() => {
-    if (state !== "charging" || hasCharged.current) return;
-    hasCharged.current = true;
-    medium();
-    // Rapid glow intensification
-    Animated.loop(Animated.sequence([
-      Animated.timing(glowOp, { toValue: 0.95, duration: 180, useNativeDriver: true }),
-      Animated.timing(glowOp, { toValue: 0.5, duration: 180, useNativeDriver: true }),
-    ])).start();
-    Animated.timing(glowScale, { toValue: 1.15, duration: 600, useNativeDriver: true }).start();
-  }, [state]);
-
-  // BURST phase
-  useEffect(() => {
-    if (state !== "bursting" || hasBurst.current) return;
-    hasBurst.current = true;
-
-    // 1. VIOLENT SHAKE
-    light();
-    Animated.sequence([
-      Animated.timing(shakeX, { toValue: 12,  duration: 40, useNativeDriver: true }),
-      Animated.timing(shakeX, { toValue: -12, duration: 40, useNativeDriver: true }),
-      Animated.timing(shakeX, { toValue: 10,  duration: 40, useNativeDriver: true }),
-      Animated.timing(shakeX, { toValue: -10, duration: 40, useNativeDriver: true }),
-      Animated.timing(shakeY, { toValue: -8,  duration: 35, useNativeDriver: true }),
-      Animated.timing(shakeX, { toValue: 8,   duration: 40, useNativeDriver: true }),
-      Animated.timing(shakeX, { toValue: -8,  duration: 40, useNativeDriver: true }),
-      Animated.timing(shakeY, { toValue: 5,   duration: 35, useNativeDriver: true }),
-      Animated.timing(shakeX, { toValue: 5,   duration: 35, useNativeDriver: true }),
-      Animated.timing(shakeX, { toValue: -3,  duration: 35, useNativeDriver: true }),
-      Animated.timing(shakeX, { toValue: 0,   duration: 30, useNativeDriver: true }),
-      Animated.timing(shakeY, { toValue: 0,   duration: 30, useNativeDriver: true }),
-    ]).start(() => {
-      // 2. TRIPLE HAPTIC + SCALE SPIKE
-      triple();
-      setShowBurst(true);
-
-      // Card scale explodes up then bounces back
-      Animated.sequence([
-        Animated.timing(cardScale, { toValue: 1.35, duration: 80, useNativeDriver: true, easing: Easing.out(Easing.ease) }),
-        Animated.spring(cardScale, { toValue: 1.0, useNativeDriver: true, speed: 26, bounciness: 6 }),
-      ]).start();
-
-      // White flash from card center
-      Animated.sequence([
-        Animated.timing(flashOp, { toValue: 1, duration: 50, useNativeDriver: true }),
-        Animated.timing(flashOp, { toValue: 0, duration: 400, useNativeDriver: true }),
-      ]).start();
-
-      // Sealed card disappears
-      Animated.timing(sealedOp, { toValue: 0, duration: 120, useNativeDriver: true }).start();
-
-      // Photo punches through: scale from 0.6 → 1.08 → 1.0
-      setTimeout(() => {
-        Animated.sequence([
-          Animated.timing(photoOp, { toValue: 1, duration: 200, useNativeDriver: true }),
-          Animated.spring(photoScale, { toValue: 1.08, useNativeDriver: true, speed: 20, bounciness: 4 }),
-        ]).start(() => {
-          Animated.spring(photoScale, { toValue: 1.0, useNativeDriver: true, speed: 30, bounciness: 6 }).start();
-          success();
-
-          // Name, role, word
-          Animated.parallel([
-            Animated.spring(nameY, { toValue: 0, useNativeDriver: true, speed: 22, bounciness: 14 }),
-            Animated.timing(nameOp, { toValue: 1, duration: 250, useNativeDriver: true }),
-          ]).start();
-          setTimeout(() => Animated.timing(roleOp, { toValue: 1, duration: 280, useNativeDriver: true }).start(), 200);
-          setTimeout(() => {
-            Animated.timing(wordOp, { toValue: 1, duration: 280, useNativeDriver: true }).start();
-            // Settled persistent glow
-            Animated.loop(Animated.sequence([
-              Animated.timing(glowOp, { toValue: 0.8, duration: 1400, useNativeDriver: true }),
-              Animated.timing(glowOp, { toValue: 0.3, duration: 1400, useNativeDriver: true }),
-            ])).start();
-            glowScale.setValue(1);
-            onDone();
-          }, 400);
-        });
-      }, 80);
+  // Develop animation: photo fades from white → image (like real polaroid)
+  const runDevelop = useCallback(() => {
+    Animated.timing(developOp, {
+      toValue: 1,
+      duration: 1800,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      success();
+      onLanded();
     });
-  }, [state]);
+  }, [onLanded]);
 
-  // Burst particles — only when bursting
-  const burstAngles = Array.from({ length: 16 }, (_, i) => i * 22.5);
+  useEffect(() => {
+    if (!shouldDrop || hasDropped.current) return;
+    hasDropped.current = true;
+
+    // 1. Drop from above
+    dropOp.setValue(1);
+    Animated.spring(dropY, {
+      toValue: 0,
+      useNativeDriver: true,
+      speed: 12,
+      bounciness: 18,
+    }).start(() => {
+      // 2. Land bounce — tiny rotation wiggle
+      buzz(Haptics.ImpactFeedbackStyle.Medium);
+      Animated.sequence([
+        Animated.timing(bounceR, { toValue: 3, duration: 80, useNativeDriver: true }),
+        Animated.timing(bounceR, { toValue: -2, duration: 80, useNativeDriver: true }),
+        Animated.timing(bounceR, { toValue: 1, duration: 60, useNativeDriver: true }),
+        Animated.timing(bounceR, { toValue: 0, duration: 60, useNativeDriver: true }),
+      ]).start();
+      // 3. Start developing
+      setTimeout(runDevelop, 150);
+    });
+  }, [shouldDrop]);
+
+  const totalWidth  = size + BORDER * 2;
+  const totalHeight = size + BORDER + BOTTOM;
+  const rotateDeg = config.rotate;
+
+  const photoRotate = bounceR.interpolate({
+    inputRange: [-10, 10], outputRange: ["-10deg", "10deg"],
+  });
 
   return (
     <Animated.View style={{
-      width: size, height: size,
-      opacity: cardOp,
       transform: [
-        { scale: Animated.multiply(cardScale, glowScale.interpolate({ inputRange: [1, 1.15], outputRange: [1, 1] })) },
-        { translateX: shakeX },
-        { translateY: shakeY },
+        { translateX: config.dx },
+        { translateY: Animated.add(dropY, new Animated.Value(config.dy)) },
+        { rotate: `${rotateDeg}deg` },
       ],
+      opacity: dropOp,
+      // Shadow for depth
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: 0.7,
+      shadowRadius: 20,
+      elevation: 20,
     }}>
-      {/* OUTER GLOW RING */}
-      <Animated.View pointerEvents="none" style={{
-        position: "absolute", top: -18, left: -18, right: -18, bottom: -18,
-        borderRadius: 30, opacity: glowOp,
-        transform: [{ scale: glowScale }],
+      {/* Polaroid frame */}
+      <View style={{
+        width: totalWidth, height: totalHeight,
+        backgroundColor: "#F2EDE0",  // warm cream polaroid color
+        borderRadius: 3,
+        padding: BORDER,
+        paddingBottom: BOTTOM,
       }}>
-        <LinearGradient colors={[THEME.primary, THEME.secondary, THEME.accent]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, borderRadius: 30 }} />
-      </Animated.View>
-
-      {/* BURST PARTICLES */}
-      {showBurst && (
-        <View pointerEvents="none" style={{ position: "absolute", top: size / 2 - 10, left: size / 2 - 10, width: 20, height: 20 }}>
-          {burstAngles.map((angle, i) => (
-            <BurstParticle key={i} angle={angle} speed={60 + Math.random() * 120} color={i % 3 === 0 ? THEME.primary : i % 3 === 1 ? THEME.secondary : "#fff"} visible={showBurst} />
-          ))}
+        {/* Photo area */}
+        <View style={{ width: size, height: size, overflow: "hidden", backgroundColor: "#fff" }}>
+          {/* Actual photo */}
+          <Animated.View style={[StyleSheet.absoluteFill, { opacity: developOp }]}>
+            <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            {/* Subtle film look — slight vignette */}
+            <LinearGradient
+              colors={["rgba(0,0,0,0.15)", "transparent", "transparent", "rgba(0,0,0,0.2)"]}
+              locations={[0, 0.3, 0.7, 1]}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
+          {/* White developing overlay — fades out */}
+          <Animated.View style={[StyleSheet.absoluteFill, {
+            backgroundColor: "#F0EDE6",
+            opacity: developOp.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+          }]} />
         </View>
-      )}
 
-      {/* PHOTO */}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: photoOp, borderRadius: 14, overflow: "hidden", transform: [{ scale: photoScale }] }]}>
-        <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-        {/* Cinematic vignette */}
-        <LinearGradient colors={["transparent", "transparent", "rgba(0,0,0,0.9)"]} style={{ position: "absolute", bottom: 0, left: 0, right: 0, top: "40%" }} />
-        {/* Name strip */}
-        <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, paddingBottom: 10, paddingHorizontal: 10 }}>
-          <Animated.Text style={{ color: "#fff", fontSize: 14, fontWeight: "900", opacity: nameOp, transform: [{ translateY: nameY }] }}>
-            {name}
-          </Animated.Text>
-          <Animated.Text style={{ color: THEME.primary, fontSize: 10, fontWeight: "800", opacity: roleOp, marginTop: 1 }}>
-            {role}
-          </Animated.Text>
-          <Animated.Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 9, fontWeight: "700", letterSpacing: 1.5, opacity: wordOp, marginTop: 1 }}>
-            "{word}"
-          </Animated.Text>
+        {/* Name strip — handwritten feel */}
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <Text style={{
+            color: "#3A3530",
+            fontSize: 11,
+            fontStyle: "italic",
+            fontWeight: "600",
+            letterSpacing: 0.3,
+          }}>
+            {name.toLowerCase()}
+          </Text>
         </View>
-      </Animated.View>
-
-      {/* WHITE FLASH */}
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: 14, backgroundColor: "#fff", opacity: flashOp }]} />
-
-      {/* SEALED CARD */}
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: sealedOp, borderRadius: 14, overflow: "hidden" }]}>
-        <LinearGradient colors={["#1A1530", "#0C0A1A", "#181430", "#0A0814"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-        {/* Diagonal lines */}
-        {Array.from({ length: 9 }).map((_, i) => (
-          <View key={i} pointerEvents="none" style={{
-            position: "absolute", top: `${i * 13 - 8}%`, left: -50, right: -50,
-            height: 1, backgroundColor: THEME.primary, opacity: 0.07,
-            transform: [{ rotate: "-20deg" }],
-          }} />
-        ))}
-        {/* Shimmer */}
-        <LinearGradient colors={["transparent", "rgba(255,255,255,0.05)", "rgba(255,255,255,0.02)", "transparent"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-        {/* Emblem */}
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 8 }}>
-          <View style={{ width: size * 0.42, height: size * 0.42, borderRadius: size * 0.12, overflow: "hidden" }}>
-            <LinearGradient colors={[THEME.primary + "99", THEME.secondary + "99"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontSize: size * 0.19 }}>📸</Text>
-            </LinearGradient>
-          </View>
-          <Text style={{ color: "rgba(255,255,255,0.18)", fontSize: 8, fontWeight: "900", letterSpacing: 5 }}>SAWA</Text>
-        </View>
-        {/* Edge border */}
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }]} />
-      </Animated.View>
+      </View>
     </Animated.View>
   );
 }
 
-// ─── MOSAIC REVEAL SCREEN ────────────────────────────────────
+// ─── MOSAIC / REVEAL SCREEN ──────────────────────────────────
 function MosaicReveal({ photos }: { photos: string[] }) {
   const { width } = useWindowDimensions();
-  const mosaicSize  = Math.min(width * 0.9, 380);
-  const GAP  = 5;
-  const TILE = (mosaicSize - GAP) / 2;
 
-  // Card states: sealed → charging → bursting → revealed
-  const [cardStates, setCardStates] = useState<Array<"sealed"|"charging"|"bursting"|"revealed">>(
-    ["sealed", "sealed", "sealed", "sealed"]
-  );
-  const [doneCount, setDoneCount] = useState(0);
-  const allDone = doneCount >= SHOT_COUNT;
+  // Each polaroid is ~42% of screen width
+  const POLSIZE   = Math.floor(width * 0.4);
+  const H_GAP     = 16;
+  const V_GAP     = 16;
 
-  const mosaicRef = useRef<View>(null);
+  // Which polaroid is currently dropping (-1 = none started)
+  const [currentDrop, setCurrentDrop] = useState(-1);
+  const [landedCount, setLandedCount] = useState(0);
+  const allLanded = landedCount >= SHOT_COUNT;
 
-  // Screen-level effects
-  const screenShakeX  = useRef(new Animated.Value(0)).current;
-  const screenShakeY  = useRef(new Animated.Value(0)).current;
-  const screenFlash   = useRef(new Animated.Value(0)).current;
-  const bgGlow        = useRef(new Animated.Value(0)).current;
-  const titleOp       = useRef(new Animated.Value(0)).current;
-  const titleY        = useRef(new Animated.Value(24)).current;
-  const borderOp      = useRef(new Animated.Value(0)).current;
-  const vibeValue     = useRef(new Animated.Value(0)).current;
-  const shareSlide    = useRef(new Animated.Value(80)).current;
-  const shareOp       = useRef(new Animated.Value(0)).current;
+  const mosaicRef  = useRef<View>(null);
   const [vibeScore, setVibeScore] = useState(0);
   const targetVibe = useRef(Math.floor(88 + Math.random() * 12)).current;
-  const [burstIndex, setBurstIndex] = useState(-1);
 
-  // Screen shake on burst
-  const doScreenShake = useCallback(() => {
-    Animated.sequence([
-      Animated.timing(screenShakeX, { toValue: 14,  duration: 35, useNativeDriver: true }),
-      Animated.timing(screenShakeX, { toValue: -14, duration: 35, useNativeDriver: true }),
-      Animated.timing(screenShakeY, { toValue: -8,  duration: 35, useNativeDriver: true }),
-      Animated.timing(screenShakeX, { toValue: 10,  duration: 35, useNativeDriver: true }),
-      Animated.timing(screenShakeX, { toValue: -8,  duration: 35, useNativeDriver: true }),
-      Animated.timing(screenShakeY, { toValue: 5,   duration: 30, useNativeDriver: true }),
-      Animated.timing(screenShakeX, { toValue: 4,   duration: 30, useNativeDriver: true }),
-      Animated.timing(screenShakeX, { toValue: 0,   duration: 25, useNativeDriver: true }),
-      Animated.timing(screenShakeY, { toValue: 0,   duration: 25, useNativeDriver: true }),
-    ]).start();
-    // Full screen white flash
-    Animated.sequence([
-      Animated.timing(screenFlash, { toValue: 0.35, duration: 40, useNativeDriver: true }),
-      Animated.timing(screenFlash, { toValue: 0, duration: 500, useNativeDriver: true }),
-    ]).start();
-  }, []);
+  // Post-reveal anim values
+  const vibeOp    = useRef(new Animated.Value(0)).current;
+  const vibeValue = useRef(new Animated.Value(0)).current;
+  const brandOp   = useRef(new Animated.Value(0)).current;
+  const shareSlide = useRef(new Animated.Value(60)).current;
+  const shareOp   = useRef(new Animated.Value(0)).current;
+  const titleOp   = useRef(new Animated.Value(0)).current;
+  const titleY    = useRef(new Animated.Value(20)).current;
 
-  // Kick off sequence
+  // Title fades in on mount
   useEffect(() => {
-    // BG glow fades in
-    Animated.timing(bgGlow, { toValue: 1, duration: 1000, useNativeDriver: true }).start();
-    // Title
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(titleOp, { toValue: 1, duration: 500, useNativeDriver: true }),
-        Animated.spring(titleY, { toValue: 0, useNativeDriver: true, speed: 14, bounciness: 8 }),
-      ]).start();
-    }, 300);
-    // Start charging card 0 after cards appear (1.2s)
-    setTimeout(() => startCharge(0), 1200);
+    Animated.parallel([
+      Animated.timing(titleOp, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.spring(titleY, { toValue: 0, useNativeDriver: true, speed: 14, bounciness: 8 }),
+    ]).start();
+    // First polaroid drops after 800ms
+    setTimeout(() => setCurrentDrop(0), 800);
   }, []);
 
-  const startCharge = useCallback((index: number) => {
-    setCardStates((prev) => {
-      const next = [...prev];
-      next[index] = "charging";
-      return next;
-    });
-    // After 700ms charging — BURST
-    setTimeout(() => {
-      setBurstIndex(index);
-      setCardStates((prev) => {
-        const next = [...prev];
-        next[index] = "bursting";
-        return next;
-      });
-      doScreenShake();
-    }, 700);
-  }, [doScreenShake]);
-
-  const handleCardDone = useCallback((index: number) => {
-    setCardStates((prev) => {
-      const next = [...prev];
-      next[index] = "revealed";
-      return next;
-    });
-    setDoneCount((c) => {
+  const handleLanded = useCallback((index: number) => {
+    setLandedCount((c) => {
       const next = c + 1;
       if (next < SHOT_COUNT) {
-        // 600ms pause then charge next
-        setTimeout(() => startCharge(index + 1), 600);
+        // 400ms between each drop
+        setTimeout(() => setCurrentDrop(index + 1), 400);
       }
       return next;
     });
-  }, [startCharge]);
+  }, []);
 
-  // Post-reveal sequence
+  // After all landed — vibe score + share
   useEffect(() => {
-    if (!allDone) return;
-    success();
+    if (!allLanded) return;
+    // Brand mark fades in
+    Animated.timing(brandOp, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+    // Vibe score
     setTimeout(() => {
-      Animated.timing(borderOp, { toValue: 1, duration: 900, useNativeDriver: true }).start();
-    }, 400);
-    setTimeout(() => {
+      Animated.timing(vibeOp, { toValue: 1, duration: 500, useNativeDriver: true }).start();
       vibeValue.addListener(({ value }) => setVibeScore(Math.floor(value)));
-      Animated.timing(vibeValue, { toValue: targetVibe, duration: 2400, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start(() => {
-        success();
-      });
-    }, 900);
+      Animated.timing(vibeValue, {
+        toValue: targetVibe, duration: 2000,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+    }, 600);
+    // Share button
     setTimeout(() => {
       Animated.parallel([
         Animated.spring(shareSlide, { toValue: 0, useNativeDriver: true, speed: 16, bounciness: 12 }),
-        Animated.timing(shareOp, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(shareOp, { toValue: 1, duration: 400, useNativeDriver: true }),
       ]).start();
-    }, 2000);
-    return () => { vibeValue.removeAllListeners(); };
-  }, [allDone]);
+    }, 1600);
+    return () => vibeValue.removeAllListeners();
+  }, [allLanded]);
 
   const handleShare = useCallback(async () => {
-    heavy();
+    buzz();
     if (!mosaicRef.current) return;
     try {
       const uri = await captureRef(mosaicRef, { format: "png", quality: 1, result: "tmpfile" });
@@ -640,7 +437,7 @@ function MosaicReveal({ photos }: { photos: string[] }) {
   }, []);
 
   const handleSave = useCallback(async () => {
-    medium();
+    buzz();
     if (!mosaicRef.current) return;
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync();
@@ -651,104 +448,105 @@ function MosaicReveal({ photos }: { photos: string[] }) {
     } catch {}
   }, []);
 
-  const statusText =
-    doneCount === 0 ? "Your memories are sealed..." :
-    doneCount < SHOT_COUNT ? `${doneCount} of ${SHOT_COUNT} revealed...` :
-    "Locked in forever ✨";
+  const statusText = landedCount === 0 ? "Developing..." :
+    landedCount < SHOT_COUNT ? `${landedCount} of ${SHOT_COUNT} developed...` :
+    "Tonight ✨";
 
-  const vibeEmoji = targetVibe >= 97 ? "🔥🔥🔥" : targetVibe >= 92 ? "🔥🔥" : "🔥";
+  const vibeEmoji = targetVibe >= 96 ? "🔥🔥🔥" : targetVibe >= 92 ? "🔥🔥" : "🔥";
 
   return (
-    <View style={{ flex: 1, backgroundColor: THEME.bg }}>
-      {/* Ambient particles */}
-      {Array.from({ length: 14 }).map((_, i) => (
-        <AmbientParticle key={i} color={i % 3 === 0 ? THEME.primary : i % 3 === 1 ? THEME.secondary : THEME.accent} startX={20 + (i * 25) % 360} delay={i * 300} />
-      ))}
+    <ScrollView
+      style={{ flex: 1, backgroundColor: "#0D0B1E" }}
+      contentContainerStyle={{ alignItems: "center", paddingTop: 12, paddingBottom: 60 }}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Film grain */}
+      <GrainOverlay />
+      {/* Vignette around screen */}
+      <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+        <LinearGradient colors={["rgba(0,0,0,0.5)", "transparent"]} style={{ position: "absolute", top: 0, left: 0, right: 0, height: 120 }} />
+        <LinearGradient colors={["transparent", "rgba(0,0,0,0.4)"]} style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 200 }} />
+      </View>
 
-      {/* Background glow */}
-      <Animated.View pointerEvents="none" style={{
-        position: "absolute", top: "10%", left: "-20%", right: "-20%", height: 500,
-        borderRadius: 250, opacity: bgGlow.interpolate({ inputRange: [0, 1], outputRange: [0, 0.12] }),
-      }}>
-        <LinearGradient colors={[THEME.primary, THEME.secondary, "transparent"]} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={{ flex: 1, borderRadius: 250 }} />
+      {/* Status / Title */}
+      <Animated.View style={{ alignItems: "center", marginBottom: 24, opacity: titleOp, transform: [{ translateY: titleY }] }}>
+        <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "700", letterSpacing: 4, marginBottom: 5 }}>
+          SAWA · PLANREAL
+        </Text>
+        <Text style={{ color: "#fff", fontSize: 22, fontWeight: "900", letterSpacing: -0.5 }}>
+          {statusText}
+        </Text>
       </Animated.View>
 
-      {/* Full screen flash on burst */}
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: "#fff", opacity: screenFlash, zIndex: 999 }]} />
-
-      <Animated.ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ alignItems: "center", paddingTop: 16, paddingBottom: 60 }}
-        showsVerticalScrollIndicator={false}
+      {/* POLAROID BOARD — the main shareable area */}
+      <View
+        ref={mosaicRef}
+        style={{
+          width: width * 0.92,
+          paddingVertical: 28,
+          paddingHorizontal: 20,
+          backgroundColor: "#0D0B1E",
+          borderRadius: 16,
+          alignItems: "center",
+        }}
       >
-        {/* Inner wrapper gets the shake — not the whole screen */}
-        <Animated.View style={{ alignItems: "center", width: "100%", transform: [{ translateX: screenShakeX }, { translateY: screenShakeY }] }}>
-        {/* Status */}
-        <Animated.View style={{ alignItems: "center", marginBottom: 28, opacity: titleOp, transform: [{ translateY: titleY }] }}>
-          <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: "900", letterSpacing: 4, marginBottom: 6 }}>SAWA · PLANREAL</Text>
-          <Text style={{ color: "#fff", fontSize: 20, fontWeight: "900", letterSpacing: -0.5 }}>{statusText}</Text>
-        </Animated.View>
-
-        {/* CARDS — always visible */}
-        <View>
-          <View ref={mosaicRef} style={{ width: mosaicSize, height: mosaicSize, backgroundColor: THEME.bg, borderRadius: 20, overflow: "hidden" }}>
-            {/* TOP ROW */}
-            <View style={{ flexDirection: "row", height: TILE }}>
-              <SealedCard uri={photos[0]} name={NAMES[0]} role={ROLES[0]} word={WORDS[0]} size={TILE} state={cardStates[0]} onDone={() => handleCardDone(0)} index={0} />
-              <View style={{ width: GAP }} />
-              <SealedCard uri={photos[1]} name={NAMES[1]} role={ROLES[1]} word={WORDS[1]} size={TILE} state={cardStates[1]} onDone={() => handleCardDone(1)} index={1} />
-            </View>
-            <View style={{ height: GAP }} />
-            {/* BOTTOM ROW */}
-            <View style={{ flexDirection: "row", height: TILE }}>
-              <SealedCard uri={photos[2]} name={NAMES[2]} role={ROLES[2]} word={WORDS[2]} size={TILE} state={cardStates[2]} onDone={() => handleCardDone(2)} index={2} />
-              <View style={{ width: GAP }} />
-              <SealedCard uri={photos[3]} name={NAMES[3]} role={ROLES[3]} word={WORDS[3]} size={TILE} state={cardStates[3]} onDone={() => handleCardDone(3)} index={3} />
-            </View>
-            {/* Meta bar */}
-            <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 5, backgroundColor: "rgba(7,5,16,0.7)", borderBottomLeftRadius: 20, borderBottomRightRadius: 20 }}>
-              <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 9, fontWeight: "700", letterSpacing: 1.5 }}>📍 ZAHLE · NOW</Text>
-              <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 9, fontWeight: "900", letterSpacing: 3 }}>SAWA ◈</Text>
-            </View>
-          </View>
-
-          {/* Gradient border — fades in after all revealed */}
-          <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: 20, opacity: borderOp }]}>
-            <LinearGradient colors={[THEME.primary, THEME.secondary, THEME.accent, THEME.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2.5, borderTopLeftRadius: 20, borderTopRightRadius: 20 }} />
-            <LinearGradient colors={[THEME.primary, THEME.secondary, THEME.accent, THEME.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2.5, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 }} />
-            <LinearGradient colors={[THEME.primary, THEME.secondary, THEME.accent]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 2.5, borderTopLeftRadius: 20, borderBottomLeftRadius: 20 }} />
-            <LinearGradient colors={[THEME.primary, THEME.secondary, THEME.accent]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 2.5, borderTopRightRadius: 20, borderBottomRightRadius: 20 }} />
-          </Animated.View>
+        {/* Two rows of two polaroids */}
+        <View style={{ flexDirection: "row", gap: H_GAP, marginBottom: V_GAP }}>
+          {/* Polaroid 0 — top left */}
+          <Polaroid uri={photos[0]} name={NAMES[0]} size={POLSIZE} config={POLAROID_CONFIG[0]} shouldDrop={currentDrop >= 0} onLanded={() => handleLanded(0)} />
+          {/* Polaroid 1 — top right */}
+          <Polaroid uri={photos[1]} name={NAMES[1]} size={POLSIZE} config={POLAROID_CONFIG[1]} shouldDrop={currentDrop >= 1} onLanded={() => handleLanded(1)} />
+        </View>
+        <View style={{ flexDirection: "row", gap: H_GAP }}>
+          {/* Polaroid 2 — bottom left */}
+          <Polaroid uri={photos[2]} name={NAMES[2]} size={POLSIZE} config={POLAROID_CONFIG[2]} shouldDrop={currentDrop >= 2} onLanded={() => handleLanded(2)} />
+          {/* Polaroid 3 — bottom right */}
+          <Polaroid uri={photos[3]} name={NAMES[3]} size={POLSIZE} config={POLAROID_CONFIG[3]} shouldDrop={currentDrop >= 3} onLanded={() => handleLanded(3)} />
         </View>
 
-        {/* Vibe score */}
-        <Animated.View style={{ alignItems: "center", marginTop: 28, opacity: shareOp }}>
-          <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: "900", letterSpacing: 4 }}>TONIGHT'S VIBE</Text>
-          <Text style={{ color: "#fff", fontSize: 52, fontWeight: "900", letterSpacing: -2.5, marginTop: 4 }}>
-            {vibeScore}<Text style={{ fontSize: 20, color: "rgba(255,255,255,0.25)", fontWeight: "700" }}>/100</Text>
+        {/* Sawa watermark — bottom of board */}
+        <Animated.View style={{ marginTop: 20, alignItems: "center", opacity: brandOp }}>
+          <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, fontWeight: "900", letterSpacing: 5 }}>
+            SAWA ◈
           </Text>
-          <Text style={{ fontSize: 22, marginTop: -6 }}>{vibeEmoji}</Text>
+          <Text style={{ color: "rgba(255,255,255,0.15)", fontSize: 8, letterSpacing: 2, marginTop: 2 }}>
+            📍 Zahle
+          </Text>
         </Animated.View>
+      </View>
 
-        {/* Buttons */}
-        <Animated.View style={{ width: "86%", gap: 12, marginTop: 28, opacity: shareOp, transform: [{ translateY: shareSlide }] }}>
-          <Pressable onPress={handleShare} style={{ height: 60, borderRadius: 30, overflow: "hidden" }}>
-            <LinearGradient colors={[THEME.primary, THEME.secondary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 }}>
-              <Share2 size={18} color="#fff" strokeWidth={2.5} />
-              <Text style={{ color: "#fff", fontSize: 16, fontWeight: "900" }}>Share to Instagram</Text>
-            </LinearGradient>
-          </Pressable>
-          <Pressable onPress={handleSave} style={{ height: 60, borderRadius: 30, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 }}>
-            <Download size={16} color="rgba(255,255,255,0.6)" strokeWidth={2.5} />
-            <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 15, fontWeight: "700" }}>Save to Photos</Text>
-          </Pressable>
-          <Pressable onPress={() => router.back()} style={{ alignItems: "center", paddingVertical: 14 }}>
-            <Text style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, fontWeight: "600" }}>Try Again</Text>
-          </Pressable>
-        </Animated.View>
-        </Animated.View>
-      </Animated.ScrollView>
-    </View>
+      {/* Vibe score */}
+      <Animated.View style={{ alignItems: "center", marginTop: 24, opacity: vibeOp }}>
+        <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: "700", letterSpacing: 4 }}>
+          TONIGHT'S VIBE
+        </Text>
+        <Text style={{ color: "#fff", fontSize: 48, fontWeight: "900", letterSpacing: -2.5, marginTop: 4 }}>
+          {vibeScore}
+          <Text style={{ fontSize: 18, color: "rgba(255,255,255,0.25)", fontWeight: "600" }}>/100</Text>
+        </Text>
+        <Text style={{ fontSize: 20, marginTop: -4 }}>{vibeEmoji}</Text>
+      </Animated.View>
+
+      {/* Share + Save */}
+      <Animated.View style={{
+        width: "86%", gap: 12, marginTop: 24,
+        opacity: shareOp, transform: [{ translateY: shareSlide }],
+      }}>
+        <Pressable onPress={handleShare} style={{ height: 60, borderRadius: 30, overflow: "hidden" }}>
+          <LinearGradient colors={["#FF6B35", "#FF3CAC"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 }}>
+            <Share2 size={18} color="#fff" strokeWidth={2.5} />
+            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "900" }}>Share to Instagram</Text>
+          </LinearGradient>
+        </Pressable>
+        <Pressable onPress={handleSave} style={{ height: 60, borderRadius: 30, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 }}>
+          <Download size={16} color="rgba(255,255,255,0.5)" strokeWidth={2.5} />
+          <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 15, fontWeight: "700" }}>Save to Photos</Text>
+        </Pressable>
+        <Pressable onPress={() => router.back()} style={{ alignItems: "center", paddingVertical: 14 }}>
+          <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 13 }}>Try Again</Text>
+        </Pressable>
+      </Animated.View>
+    </ScrollView>
   );
 }
 
@@ -760,13 +558,13 @@ export default function PlanRealTestScreen() {
   const handleCapture = useCallback((uri: string) => {
     setPhotos((prev) => {
       const next = [...prev, uri];
-      if (next.length >= SHOT_COUNT) setTimeout(() => setPhase("reveal"), 700);
+      if (next.length >= SHOT_COUNT) setTimeout(() => setPhase("reveal"), 600);
       return next;
     });
   }, []);
 
   return (
-    <View style={{ flex: 1, backgroundColor: THEME.bg }}>
+    <View style={{ flex: 1, backgroundColor: "#0D0B1E" }}>
       <Stack.Screen options={{ headerShown: false, animation: "fade" }} />
 
       {phase === "intro" && (
