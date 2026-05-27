@@ -86,7 +86,7 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
       <LinearGradient colors={["rgba(0,0,0,0.6)", "transparent", "transparent", "rgba(0,0,0,0.6)"]} locations={[0, 0.3, 0.7, 1]} style={StyleSheet.absoluteFill} />
 
       <View style={{ flex: 1, alignItems: "center", justifyContent: "space-between", padding: 36 }}>
-        <Animated.View style={{ alignItems: "center", paddingTop: 50, opacity, transform: [{ scale }] }}>
+        <Animated.View style={{ alignItems: "center", paddingTop: 50, opacity: op, transform: [{ scale }] }}>
           {/* Mini polaroid preview */}
           <View style={{ transform: [{ rotate: "-5deg" }], marginBottom: -20, zIndex: 1 }}>
             <View style={{ width: 100, height: 120, backgroundColor: "#F5F0E8", borderRadius: 2, padding: 6, paddingBottom: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 12 }}>
