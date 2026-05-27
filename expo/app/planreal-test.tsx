@@ -635,57 +635,69 @@ function MosaicReveal({ photos, activityType }: { photos: string[]; activityType
 
         {/* Mosaic frame */}
         <Animated.View style={{ transform: [{ scale: assembleScale }] }}>
-          {/* Gradient border — appears after all revealed */}
-          <Animated.View style={{ opacity: borderOpacity }}>
-            <LinearGradient
-              colors={[theme.primary, theme.secondary, theme.primary]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={{ borderRadius: 24, padding: 2.5 }}
-            >
-              <View
-                ref={mosaicRef}
-                style={{
-                  width: mosaicSize, height: mosaicSize,
-                  backgroundColor: "#0A0814",
-                  borderRadius: 22, overflow: "hidden",
-                }}
-              >
-                {/* TOP ROW */}
-                <View style={{ flexDirection: "row", height: TILE }}>
-                  <SealedCard uri={photos[0]} name={NAMES[0]} role={ROLES[0]} word={WORDS[0]} size={TILE} shouldReveal={currentCard >= 0} onDone={() => handleCardDone(0)} theme={theme} index={0} />
-                  <View style={{ width: GAP, backgroundColor: "#0A0814" }} />
-                  <SealedCard uri={photos[1]} name={NAMES[1]} role={ROLES[1]} word={WORDS[1]} size={TILE} shouldReveal={currentCard >= 1} onDone={() => handleCardDone(1)} theme={theme} index={1} />
-                </View>
 
-                <View style={{ height: GAP, backgroundColor: "#0A0814" }} />
+          {/* THE ACTUAL CARDS — always visible, no opacity wrapper */}
+          <View
+            ref={mosaicRef}
+            style={{
+              width: mosaicSize, height: mosaicSize,
+              backgroundColor: "#0A0814",
+              borderRadius: 22, overflow: "hidden",
+            }}
+          >
+            {/* TOP ROW */}
+            <View style={{ flexDirection: "row", height: TILE }}>
+              <SealedCard uri={photos[0]} name={NAMES[0]} role={ROLES[0]} word={WORDS[0]} size={TILE} shouldReveal={currentCard >= 0} onDone={() => handleCardDone(0)} theme={theme} index={0} />
+              <View style={{ width: GAP, backgroundColor: "#0A0814" }} />
+              <SealedCard uri={photos[1]} name={NAMES[1]} role={ROLES[1]} word={WORDS[1]} size={TILE} shouldReveal={currentCard >= 1} onDone={() => handleCardDone(1)} theme={theme} index={1} />
+            </View>
 
-                {/* BOTTOM ROW */}
-                <View style={{ flexDirection: "row", height: TILE }}>
-                  <SealedCard uri={photos[2]} name={NAMES[2]} role={ROLES[2]} word={WORDS[2]} size={TILE} shouldReveal={currentCard >= 2} onDone={() => handleCardDone(2)} theme={theme} index={2} />
-                  <View style={{ width: GAP, backgroundColor: "#0A0814" }} />
-                  <SealedCard uri={photos[3]} name={NAMES[3]} role={ROLES[3]} word={WORDS[3]} size={TILE} shouldReveal={currentCard >= 3} onDone={() => handleCardDone(3)} theme={theme} index={3} />
-                </View>
+            <View style={{ height: GAP, backgroundColor: "#0A0814" }} />
 
-                {/* Meta bar */}
-                <View style={{
-                  position: "absolute", bottom: 0, left: 0, right: 0,
-                  flexDirection: "row", justifyContent: "space-between",
-                  paddingHorizontal: 12, paddingVertical: 5,
-                  backgroundColor: "rgba(10,8,20,0.7)",
-                }}>
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, fontWeight: "700", letterSpacing: 1 }}>📍 ZAHLE · NOW</Text>
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, fontWeight: "900", letterSpacing: 2 }}>SAWA ◈</Text>
-                </View>
-              </View>
-            </LinearGradient>
+            {/* BOTTOM ROW */}
+            <View style={{ flexDirection: "row", height: TILE }}>
+              <SealedCard uri={photos[2]} name={NAMES[2]} role={ROLES[2]} word={WORDS[2]} size={TILE} shouldReveal={currentCard >= 2} onDone={() => handleCardDone(2)} theme={theme} index={2} />
+              <View style={{ width: GAP, backgroundColor: "#0A0814" }} />
+              <SealedCard uri={photos[3]} name={NAMES[3]} role={ROLES[3]} word={WORDS[3]} size={TILE} shouldReveal={currentCard >= 3} onDone={() => handleCardDone(3)} theme={theme} index={3} />
+            </View>
+
+            {/* Meta bar */}
+            <View style={{
+              position: "absolute", bottom: 0, left: 0, right: 0,
+              flexDirection: "row", justifyContent: "space-between",
+              paddingHorizontal: 12, paddingVertical: 5,
+              backgroundColor: "rgba(10,8,20,0.7)",
+            }}>
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, fontWeight: "700", letterSpacing: 1 }}>📍 ZAHLE · NOW</Text>
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, fontWeight: "900", letterSpacing: 2 }}>SAWA ◈</Text>
+            </View>
+          </View>
+
+          {/* GRADIENT BORDER — animates ON after all cards revealed */}
+          {/* Sits on top of cards as a border ring only — does not hide cards */}
+          <Animated.View
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, { borderRadius: 22, opacity: borderOpacity }]}
+          >
+            {/* Top edge */}
+            <LinearGradient colors={[theme.primary, theme.secondary, theme.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2.5, borderTopLeftRadius: 22, borderTopRightRadius: 22 }} />
+            {/* Bottom edge */}
+            <LinearGradient colors={[theme.primary, theme.secondary, theme.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2.5, borderBottomLeftRadius: 22, borderBottomRightRadius: 22 }} />
+            {/* Left edge */}
+            <LinearGradient colors={[theme.primary, theme.secondary, theme.primary]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 2.5, borderTopLeftRadius: 22, borderBottomLeftRadius: 22 }} />
+            {/* Right edge */}
+            <LinearGradient colors={[theme.primary, theme.secondary, theme.primary]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 2.5, borderTopRightRadius: 22, borderBottomRightRadius: 22 }} />
           </Animated.View>
 
-          {/* Dark border while building */}
-          <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, {
-            borderRadius: 24, borderWidth: 1,
-            borderColor: "rgba(255,255,255,0.08)",
-            opacity: borderOpacity.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
-          }]} />
+          {/* Dark border ring while building — fades out when gradient border appears */}
+          <Animated.View
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, {
+              borderRadius: 22, borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.1)",
+              opacity: borderOpacity.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+            }]}
+          />
         </Animated.View>
 
         {/* Vibe score */}
